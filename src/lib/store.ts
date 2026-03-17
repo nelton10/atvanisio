@@ -82,114 +82,151 @@ export async function getClassById(id: string): Promise<SchoolClass | undefined>
 
 // Students
 export async function addStudent(classId: string, name: string) {
-  const classRef = doc(db, CLASSES_COLLECTION, classId);
-  const cls = await getClassById(classId);
-  if (cls) {
+  try {
+    const classRef = doc(db, CLASSES_COLLECTION, classId);
     const newStudent = { id: generateId(), name };
     await updateDoc(classRef, {
       students: arrayUnion(newStudent)
     });
+  } catch (error) {
+    console.error("Firestore addStudent error:", error);
+    throw error;
   }
 }
 
 export async function removeStudent(classId: string, studentId: string) {
-  const classRef = doc(db, CLASSES_COLLECTION, classId);
-  const cls = await getClassById(classId);
-  if (cls) {
-    const studentToRemove = cls.students.find(s => s.id === studentId);
-    if (studentToRemove) {
-      // Also clean up completedIds in activities
-      const updatedActivities = cls.activities.map(a => ({
-        ...a,
-        completedIds: a.completedIds.filter(id => id !== studentId)
-      }));
-      
-      await updateDoc(classRef, {
-        students: arrayRemove(studentToRemove),
-        activities: updatedActivities
-      });
+  try {
+    const classRef = doc(db, CLASSES_COLLECTION, classId);
+    const cls = await getClassById(classId);
+    if (cls) {
+      const studentToRemove = cls.students.find(s => s.id === studentId);
+      if (studentToRemove) {
+        // Also clean up completedIds in activities
+        const updatedActivities = cls.activities.map(a => ({
+          ...a,
+          completedIds: a.completedIds.filter(id => id !== studentId)
+        }));
+        
+        await updateDoc(classRef, {
+          students: arrayRemove(studentToRemove),
+          activities: updatedActivities
+        });
+      }
     }
+  } catch (error) {
+    console.error("Firestore removeStudent error:", error);
+    throw error;
   }
 }
 
 // Activities
 export async function addActivity(classId: string, title: string, author: string, image?: string) {
-  const classRef = doc(db, CLASSES_COLLECTION, classId);
-  const newActivity: Activity = {
-    id: generateId(),
-    title,
-    date: new Date().toISOString(),
-    completedIds: [],
-    image,
-    author,
-  };
-  await updateDoc(classRef, {
-    activities: arrayUnion(newActivity)
-  });
+  try {
+    const classRef = doc(db, CLASSES_COLLECTION, classId);
+    const newActivity: Activity = {
+      id: generateId(),
+      title,
+      date: new Date().toISOString(),
+      completedIds: [],
+      image,
+      author,
+    };
+    await updateDoc(classRef, {
+      activities: arrayUnion(newActivity)
+    });
+  } catch (error) {
+    console.error("Firestore addActivity error:", error);
+    throw error;
+  }
 }
 
 export async function updateActivity(classId: string, activityId: string, updates: Partial<{ title: string; image: string | undefined; completedIds: string[] }>) {
-  const classRef = doc(db, CLASSES_COLLECTION, classId);
-  const cls = await getClassById(classId);
-  if (cls) {
-    const updatedActivities = cls.activities.map(a => 
-      a.id === activityId ? { ...a, ...updates } : a
-    );
-    await updateDoc(classRef, { activities: updatedActivities });
+  try {
+    const classRef = doc(db, CLASSES_COLLECTION, classId);
+    const cls = await getClassById(classId);
+    if (cls) {
+      const updatedActivities = cls.activities.map(a => 
+        a.id === activityId ? { ...a, ...updates } : a
+      );
+      await updateDoc(classRef, { activities: updatedActivities });
+    }
+  } catch (error) {
+    console.error("Firestore updateActivity error:", error);
+    throw error;
   }
 }
 
 export async function deleteActivity(classId: string, activityId: string) {
-  const classRef = doc(db, CLASSES_COLLECTION, classId);
-  const cls = await getClassById(classId);
-  if (cls) {
-    const updatedActivities = cls.activities.filter(a => a.id !== activityId);
-    await updateDoc(classRef, { activities: updatedActivities });
+  try {
+    const classRef = doc(db, CLASSES_COLLECTION, classId);
+    const cls = await getClassById(classId);
+    if (cls) {
+      const updatedActivities = cls.activities.filter(a => a.id !== activityId);
+      await updateDoc(classRef, { activities: updatedActivities });
+    }
+  } catch (error) {
+    console.error("Firestore deleteActivity error:", error);
+    throw error;
   }
 }
 
 export async function toggleStudentCompletion(classId: string, activityId: string, studentId: string) {
-  const classRef = doc(db, CLASSES_COLLECTION, classId);
-  const cls = await getClassById(classId);
-  if (cls) {
-    const updatedActivities = cls.activities.map(a => {
-      if (a.id === activityId) {
-        const completedIds = a.completedIds.includes(studentId)
-          ? a.completedIds.filter(id => id !== studentId)
-          : [...a.completedIds, studentId];
-        return { ...a, completedIds };
-      }
-      return a;
-    });
-    await updateDoc(classRef, { activities: updatedActivities });
+  try {
+    const classRef = doc(db, CLASSES_COLLECTION, classId);
+    const cls = await getClassById(classId);
+    if (cls) {
+      const updatedActivities = cls.activities.map(a => {
+        if (a.id === activityId) {
+          const completedIds = a.completedIds.includes(studentId)
+            ? a.completedIds.filter(id => id !== studentId)
+            : [...a.completedIds, studentId];
+          return { ...a, completedIds };
+        }
+        return a;
+      });
+      await updateDoc(classRef, { activities: updatedActivities });
+    }
+  } catch (error) {
+    console.error("Firestore toggleStudentCompletion error:", error);
+    throw error;
   }
 }
 
 export async function markAllComplete(classId: string, activityId: string) {
-  const classRef = doc(db, CLASSES_COLLECTION, classId);
-  const cls = await getClassById(classId);
-  if (cls) {
-    const updatedActivities = cls.activities.map(a => {
-      if (a.id === activityId) {
-        return { ...a, completedIds: cls.students.map(s => s.id) };
-      }
-      return a;
-    });
-    await updateDoc(classRef, { activities: updatedActivities });
+  try {
+    const classRef = doc(db, CLASSES_COLLECTION, classId);
+    const cls = await getClassById(classId);
+    if (cls) {
+      const updatedActivities = cls.activities.map(a => {
+        if (a.id === activityId) {
+          return { ...a, completedIds: cls.students.map(s => s.id) };
+        }
+        return a;
+      });
+      await updateDoc(classRef, { activities: updatedActivities });
+    }
+  } catch (error) {
+    console.error("Firestore markAllComplete error:", error);
+    throw error;
   }
 }
 
 export async function clearAllCompletion(classId: string, activityId: string) {
-  const classRef = doc(db, CLASSES_COLLECTION, classId);
-  const cls = await getClassById(classId);
-  if (cls) {
-    const updatedActivities = cls.activities.map(a => {
-      if (a.id === activityId) {
-        return { ...a, completedIds: [] };
-      }
-      return a;
-    });
-    await updateDoc(classRef, { activities: updatedActivities });
+  try {
+    const classRef = doc(db, CLASSES_COLLECTION, classId);
+    const cls = await getClassById(classId);
+    if (cls) {
+      const updatedActivities = cls.activities.map(a => {
+        if (a.id === activityId) {
+          return { ...a, completedIds: [] };
+        }
+        return a;
+      });
+      await updateDoc(classRef, { activities: updatedActivities });
+    }
+  } catch (error) {
+    console.error("Firestore clearAllCompletion error:", error);
+    throw error;
   }
 }
 

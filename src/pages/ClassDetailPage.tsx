@@ -68,9 +68,9 @@ export default function ClassDetailPage({ classId, onBack }: Props) {
       await addActivity(classId, newActivityTitle.trim(), user.name);
       setNewActivityTitle('');
       await reload();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao adicionar atividade:", error);
-      alert("Erro ao criar atividade. Verifique sua conexão.");
+      alert(`Erro ao criar atividade: ${error.message || 'Verifique sua conexão.'}`);
     }
   };
 
@@ -81,9 +81,9 @@ export default function ClassDetailPage({ classId, onBack }: Props) {
       await addActivity(classId, dateTitle, user.name);
       setNewActivityTitle('');
       await reload();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao adicionar atividade com data:", error);
-      alert("Erro ao criar atividade automática. Verifique sua conexão.");
+      alert(`Erro ao criar atividade automática: ${error.message || 'Verifique sua conexão.'}`);
     }
   };
 
