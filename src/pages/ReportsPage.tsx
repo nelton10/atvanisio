@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { SchoolClass } from '@/types';
-import { getClasses } from '@/lib/store';
+import { getClasses, getAssignments } from '@/lib/store';
 import { ArrowLeft, Download, Printer, BarChart3 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -17,16 +18,26 @@ interface StudentReport {
 }
 
 export default function ReportsPage({ onBack }: Props) {
+  const { user } = useAuth();
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>('all');
 
   useEffect(() => {
     const loadData = async () => {
-      const cls = await getClasses();
-      setClasses(cls);
+      const [allClasses, allAssignments] = await Promise.all([
+        getClasses(),
+        getAssignments()
+      ]);
+      
+      if (user?.role === 'gestao') {
+        setClasses(allClasses);
+      } else if (user) {
+        const myClassIds = allAssignments[user.name] || [];
+        setClasses(allClasses.filter(c => myClassIds.includes(c.id)));
+      }
     };
     loadData();
-  }, []);
+  }, [user]);
 
   const targetClasses = selectedClassId === 'all'
     ? classes
