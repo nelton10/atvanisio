@@ -156,17 +156,19 @@ export default function ClassDetailPage({ classId, onBack }: Props) {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-4 bg-secondary rounded-lg p-1">
-        {(['activities', 'students'] as const).map(t => (
-          <button
-            key={t}
-            onClick={() => { setTab(t); setSelectedActivity(null); }}
-            className={`flex-1 h-9 rounded-md text-sm font-medium transition-colors ${
-              tab === t ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
-            }`}
-          >
-            {t === 'activities' ? 'Atividades' : 'Alunos'}
-          </button>
-        ))}
+        {(['activities', 'students'] as const)
+          .filter(t => t !== 'students' || user?.role === 'gestao')
+          .map(t => (
+            <button
+              key={t}
+              onClick={() => { setTab(t); setSelectedActivity(null); }}
+              className={`flex-1 h-9 rounded-md text-sm font-medium transition-colors ${
+                tab === t ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
+              }`}
+            >
+              {t === 'activities' ? 'Atividades' : 'Alunos'}
+            </button>
+          ))}
       </div>
 
       {/* Students Tab */}
