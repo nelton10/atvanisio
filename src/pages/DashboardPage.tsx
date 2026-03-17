@@ -8,9 +8,11 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Trash2, Edit3, Download, Upload, Users, BookOpen,
-  Check, Search, FolderOpen, Smartphone
+  Check, Search, FolderOpen, Smartphone, CalendarDays, X
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
+import { getBimesters, setBimesters } from '@/lib/store';
+import { Bimester, Assignment } from '@/types';
 
 interface Props {
   onOpenClass: (id: string, discipline: string) => void;
@@ -30,17 +32,27 @@ export default function DashboardPage({ onOpenClass }: Props) {
   const [newDiscipline, setNewDiscipline] = useState('');
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBtn, setShowInstallBtn] = useState(false);
+  const [bimesters, setBimestersList] = useState<Bimester[]>([]);
+  const [showBimesterModal, setShowBimesterModal] = useState(false);
+  const [activeBimester, setActiveBimester] = useState<Bimester | null>(null);
 
   const isGestao = user?.role === 'gestao';
 
   const loadData = async () => {
-    const [clsList, assignList] = await Promise.all([
+    const [clsList, assignList, bimesterList] = await Promise.all([
       getClasses(),
-      getAssignments()
+      getAssignments(),
+      getBimesters()
     ]);
     setClasses(clsList);
     setAssignments(assignList);
+    setBimestersList(bimesterList);
     
+    // Auto-detect current bimester
+    const now = new Date().toISOString().split('T')[0];
+    const current = bimesterList.find(b => now >= b.startDate && now <= b.endDate) || bimesterList[0];
+    setActiveBimester(current || null);
+
     if (user?.role === 'prof') {
       const myAssignments = assignList[user.name] || [];
       setSelectedAssignments(myAssignments);
@@ -162,6 +174,16 @@ export default function DashboardPage({ onOpenClass }: Props) {
     setSelectedAssignments(prev => prev.filter(a => !(a.classId === classId && a.discipline === discipline)));
   };
 
+  const handleSaveBimesters = async () => {
+    await setBimesters(bimesters);
+    setShowBimesterModal(false);
+    loadData();
+  };
+
+  const updateBimesterDate = (id: number, field: 'startDate' | 'endDate', value: string) => {
+    setBimestersList(prev => prev.map(b => b.id === id ? { ...b, [field]: value } : b));
+  };
+
   // Professor setup mode
   if (setupMode) {
     return (
@@ -234,26 +256,52 @@ export default function DashboardPage({ onOpenClass }: Props) {
     );
   }
 
+  const calculateProgress = (cls: SchoolClass, discipline?: string) => {
+    const totalStudents = cls.students.length;
+    if (totalStudents === 0) return 0;
+
+    let activities = cls.activities;
+    if (discipline) {
+      activities = activities.filter(a => a.discipline === discipline);
+    }
+    
+    if (activeBimester) {
+      activities = activities.filter(a => {
+        const date = a.date.split('T')[0];
+        return date >= activeBimester.startDate && date <= activeBimester.endDate;
+      });
+    }
+
+    const totalActivities = activities.length;
+    if (totalActivities === 0) return 0;
+
+    const totalCompleted = activities.reduce((s, a) => s + a.completedIds.length, 0);
+    return (totalCompleted / (totalStudents * totalActivities)) * 100;
+  };
+
   const globalAvg = visibleClasses.length > 0
-    ? visibleClasses.reduce((sum, cls) => {
-        if (cls.students.length === 0 || cls.activities.length === 0) return sum;
-        const totalPossible = cls.students.length * cls.activities.length;
-        const totalCompleted = cls.activities.reduce((s, a) => s + a.completedIds.length, 0);
-        return sum + (totalCompleted / totalPossible) * 100;
-      }, 0) / visibleClasses.filter(c => c.students.length > 0 && c.activities.length > 0).length || 0
+    ? visibleClasses.reduce((sum, cls) => sum + calculateProgress(cls), 0) / visibleClasses.length
     : 0;
 
   return (
     <div className="p-4 max-w-3xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-foreground font-display">
-          {isGestao ? 'Painel de Gestão' : `Olá, ${user?.name}`}
-        </h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-2xl font-bold text-foreground font-display">
+            {isGestao ? 'Painel de Gestão' : `Olá, ${user?.name}`}
+          </h2>
+          {activeBimester && (
+            <div className="flex items-center gap-2 bg-primary/10 text-primary px-3 py-1.5 rounded-full">
+              <CalendarDays size={14} />
+              <span className="text-xs font-bold">{activeBimester.name}</span>
+            </div>
+          )}
+        </div>
         {isGestao && visibleClasses.length > 0 && (
           <div className="mt-4 p-4 rounded-2xl bg-card border border-border shadow-sm">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-muted-foreground">Média Global de Conclusão</span>
+              <span className="text-sm font-medium text-muted-foreground">Progresso Médio do Bimestre</span>
               <span className="text-base font-bold text-foreground tabular-nums">
                 {globalAvg.toFixed(1).replace('.', ',')}%
               </span>
@@ -262,15 +310,14 @@ export default function DashboardPage({ onOpenClass }: Props) {
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${globalAvg}%` }}
-                className="h-full bg-primary rounded-full"
-                transition={{ duration: 0.5 }}
+                className="h-full bg-primary rounded-full transition-all duration-500"
               />
             </div>
           </div>
         )}
       </div>
 
-      {/* Actions for gestao */}
+      {/* Actions */}
       <div className="flex flex-wrap gap-2 mb-4">
         {showInstallBtn && (
           <motion.button
@@ -281,6 +328,13 @@ export default function DashboardPage({ onOpenClass }: Props) {
             <Smartphone size={16} /> Instalar Aplicativo
           </motion.button>
         )}
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={() => setShowBimesterModal(true)}
+          className="flex items-center gap-1.5 h-9 px-3 rounded-lg bg-card border border-border text-sm font-medium text-foreground hover:bg-secondary transition-colors"
+        >
+          <CalendarDays size={16} /> Bimestres
+        </motion.button>
         {isGestao && (
           <>
             <motion.button
@@ -341,10 +395,7 @@ export default function DashboardPage({ onOpenClass }: Props) {
         <AnimatePresence>
           {isGestao ? filteredClasses.map(cls => {
             const totalStudents = cls.students.length;
-            const totalActivities = cls.activities.length;
-            const progress = totalStudents > 0 && totalActivities > 0
-              ? (cls.activities.reduce((s, a) => s + a.completedIds.length, 0) / (totalStudents * totalActivities)) * 100
-              : 0;
+            const progress = calculateProgress(cls);
 
             return (
               <motion.div
@@ -382,7 +433,9 @@ export default function DashboardPage({ onOpenClass }: Props) {
                         <h3 className="text-base font-bold text-foreground font-display">{cls.name}</h3>
                         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1"><Users size={12} /> {totalStudents} alunos</span>
-                          <span className="flex items-center gap-1"><BookOpen size={12} /> {totalActivities} atividades</span>
+                          <span className="flex items-center gap-1">
+                            <BookOpen size={12} /> {cls.activities.length} atividades
+                          </span>
                         </div>
                       </motion.button>
                       <div className="flex items-center gap-1">
@@ -400,13 +453,13 @@ export default function DashboardPage({ onOpenClass }: Props) {
                         </button>
                       </div>
                     </div>
-                    {totalStudents > 0 && totalActivities > 0 && (
+                    {totalStudents > 0 && (
                       <div className="flex items-center gap-3">
                         <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
                           <motion.div
                             initial={{ width: 0 }}
                             animate={{ width: `${progress}%` }}
-                            className="h-full bg-primary rounded-full"
+                            className="h-full bg-primary rounded-full transition-all duration-500"
                           />
                         </div>
                         <span className="text-xs font-bold text-muted-foreground tabular-nums">
@@ -423,11 +476,8 @@ export default function DashboardPage({ onOpenClass }: Props) {
             if (!cls) return null;
             
             const totalStudents = cls.students.length;
-            const activities = cls.activities.filter(act => act.discipline === a.discipline);
-            const totalActivities = activities.length;
-            const progress = totalStudents > 0 && totalActivities > 0
-              ? (activities.reduce((s, act) => s + act.completedIds.length, 0) / (totalStudents * totalActivities)) * 100
-              : 0;
+            const progress = calculateProgress(cls, a.discipline);
+            const activitiesCount = cls.activities.filter(act => act.discipline === a.discipline).length;
 
             return (
               <motion.div
@@ -448,17 +498,19 @@ export default function DashboardPage({ onOpenClass }: Props) {
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1"><Users size={12} /> {totalStudents} alunos</span>
-                      <span className="flex items-center gap-1"><BookOpen size={12} /> {totalActivities} atividades</span>
+                      <span className="flex items-center gap-1">
+                        <BookOpen size={12} /> {activitiesCount} atividades
+                      </span>
                     </div>
                   </motion.button>
                 </div>
-                {totalStudents > 0 && totalActivities > 0 && (
+                {totalStudents > 0 && (
                   <div className="flex items-center gap-3">
                     <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${progress}%` }}
-                        className="h-full bg-primary rounded-full"
+                        className="h-full bg-primary rounded-full transition-all duration-500"
                       />
                     </div>
                     <span className="text-xs font-bold text-muted-foreground tabular-nums">
@@ -500,6 +552,63 @@ export default function DashboardPage({ onOpenClass }: Props) {
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
       />
+
+      <AnimatePresence>
+        {showBimesterModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-card w-full max-w-md rounded-2xl shadow-xl overflow-hidden border border-border"
+            >
+              <div className="p-4 border-b border-border flex items-center justify-between">
+                <h3 className="font-bold text-foreground flex items-center gap-2">
+                  <CalendarDays size={18} className="text-primary" /> Configurar Bimestres
+                </h3>
+                <button onClick={() => setShowBimesterModal(false)} className="p-2 hover:bg-secondary rounded-lg transition-colors">
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+                {bimesters.map(b => (
+                  <div key={b.id} className="p-3 rounded-xl border border-border bg-background space-y-3">
+                    <div className="text-sm font-bold text-foreground">{b.name}</div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase mb-1 block">Início</label>
+                        <input
+                          type="date"
+                          value={b.startDate}
+                          onChange={e => updateBimesterDate(b.id, 'startDate', e.target.value)}
+                          className="w-full h-9 px-2 rounded-lg border border-input bg-card text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase mb-1 block">Término</label>
+                        <input
+                          type="date"
+                          value={b.endDate}
+                          onChange={e => updateBimesterDate(b.id, 'endDate', e.target.value)}
+                          className="w-full h-9 px-2 rounded-lg border border-input bg-card text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="p-4 border-t border-border bg-secondary/30 flex gap-2">
+                <button
+                  onClick={handleSaveBimesters}
+                  className="flex-1 h-11 bg-primary text-primary-foreground rounded-xl font-bold text-sm shadow-sm"
+                >
+                  Confirmar Alterações
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

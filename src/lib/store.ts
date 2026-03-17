@@ -13,7 +13,7 @@ import {
   arrayUnion,
   arrayRemove
 } from "firebase/firestore";
-import { SchoolClass, ProfessorAssignments, UserSession, Activity, Assignment } from '@/types';
+import { SchoolClass, ProfessorAssignments, UserSession, Activity, Assignment, Bimester } from '@/types';
 
 const CLASSES_COLLECTION = 'classes';
 const ASSIGNMENTS_COLLECTION = 'assignments';
@@ -253,7 +253,38 @@ export async function clearAllCompletion(classId: string, activityId: string) {
   }
 }
 
-// Professor assignments
+// Bimesters
+export async function getBimesters(): Promise<Bimester[]> {
+  try {
+    const docRef = doc(db, ASSIGNMENTS_COLLECTION, 'config');
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists() && docSnap.data().bimesters) {
+      return docSnap.data().bimesters as Bimester[];
+    }
+    // Default bimesters if none exist
+    const currentYear = new Date().getFullYear();
+    return [
+      { id: 1, name: '1º Bimestre', startDate: `${currentYear}-02-01`, endDate: `${currentYear}-04-30` },
+      { id: 2, name: '2º Bimestre', startDate: `${currentYear}-05-01`, endDate: `${currentYear}-06-30` },
+      { id: 3, name: '3º Bimestre', startDate: `${currentYear}-08-01`, endDate: `${currentYear}-09-30` },
+      { id: 4, name: '4º Bimestre', startDate: `${currentYear}-10-01`, endDate: `${currentYear}-12-20` },
+    ];
+  } catch (error) {
+    console.error("Firestore getBimesters error:", error);
+    return [];
+  }
+}
+
+export async function setBimesters(bimesters: Bimester[]) {
+  try {
+    const docRef = doc(db, ASSIGNMENTS_COLLECTION, 'config');
+    await setDoc(docRef, { bimesters }, { merge: true });
+  } catch (error) {
+    console.error("Firestore setBimesters error:", error);
+    throw error;
+  }
+}
+
 export async function getAssignments(): Promise<ProfessorAssignments> {
   const docRef = doc(db, ASSIGNMENTS_COLLECTION, 'global');
   const docSnap = await getDoc(docRef);
@@ -262,7 +293,6 @@ export async function getAssignments(): Promise<ProfessorAssignments> {
   }
   return {};
 }
-
 
 // Session
 export function getSession(): UserSession | null {

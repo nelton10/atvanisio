@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { SchoolClass } from '@/types';
-import { getClasses, getAssignments } from '@/lib/store';
-import { ArrowLeft, Download, Printer, BarChart3 } from 'lucide-react';
+import { getClasses, getAssignments, getBimesters } from '@/lib/store';
+import { ArrowLeft, Download, Printer, BarChart3, CalendarDays } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { Bimester } from '@/types';
 
 interface Props {
   onBack: () => void;
@@ -23,14 +24,28 @@ export default function ReportsPage({ onBack }: Props) {
   const { user } = useAuth();
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [allReports, setAllReports] = useState<StudentReport[]>([]);
+  const [bimesters, setBimesters] = useState<Bimester[]>([]);
+  const [activeBimesterId, setActiveBimesterId] = useState<number>(0);
   const [filter, setFilter] = useState<{classId: string, discipline: string}>({ classId: 'all', discipline: '' });
 
   useEffect(() => {
     const loadData = async () => {
-      const [allClasses, allAssignments] = await Promise.all([
+      const [allClasses, allAssignments, bimesterList] = await Promise.all([
         getClasses(),
-        getAssignments()
+        getAssignments(),
+        getBimesters()
       ]);
+      setBimesters(bimesterList);
+      
+      let currentBimesterId = activeBimesterId;
+      if (currentBimesterId === 0 && bimesterList.length > 0) {
+        const now = new Date().toISOString().split('T')[0];
+        const current = bimesterList.find(b => now >= b.startDate && now <= b.endDate) || bimesterList[0];
+        currentBimesterId = current.id;
+        setActiveBimesterId(currentBimesterId);
+      }
+
+      const activeBimester = bimesterList.find(b => b.id === currentBimesterId);
       
       let filteredClasses = allClasses;
       const studentReports: StudentReport[] = [];
@@ -56,7 +71,13 @@ export default function ReportsPage({ onBack }: Props) {
 
         for (const disc of disciplines) {
           cls.students.forEach(student => {
-            const activities = cls.activities.filter(a => !disc || a.discipline === disc);
+            const activities = cls.activities.filter(a => {
+              const matchesDisc = !disc || a.discipline === disc;
+              if (!matchesDisc) return false;
+              if (!activeBimester) return true;
+              const date = a.date.split('T')[0];
+              return date >= activeBimester.startDate && date <= activeBimester.endDate;
+            });
             const total = activities.length;
             const completed = activities.filter(a => a.completedIds.includes(student.id)).length;
             
@@ -77,7 +98,7 @@ export default function ReportsPage({ onBack }: Props) {
       setAllReports(studentReports);
     };
     loadData();
-  }, [user]);
+  }, [user, activeBimesterId]);
 
   const filteredReports = filter.classId === 'all'
     ? allReports
@@ -124,6 +145,23 @@ export default function ReportsPage({ onBack }: Props) {
           <ArrowLeft size={20} />
         </motion.button>
         <h2 className="text-xl font-bold text-foreground font-display">Relatórios</h2>
+      </div>
+
+      {/* Bimester Selector */}
+      <div className="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide">
+        {bimesters.map(b => (
+          <button
+            key={b.id}
+            onClick={() => setActiveBimesterId(b.id)}
+            className={`px-4 h-9 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+              activeBimesterId === b.id
+                ? 'bg-primary text-primary-foreground shadow-md'
+                : 'bg-card text-muted-foreground border border-border hover:bg-secondary'
+            }`}
+          >
+            {b.name}
+          </button>
+        ))}
       </div>
 
       {/* Filter */}

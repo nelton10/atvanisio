@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { SchoolClass, Activity, Student } from '@/types';
+import { SchoolClass, Activity, Student, Bimester } from '@/types';
 import {
   getClassById, getClasses, addStudent, removeStudent,
   addActivity, updateActivity, deleteActivity,
   toggleStudentCompletion, markAllComplete, clearAllCompletion,
-  updateClass
+  updateClass, getBimesters
 } from '@/lib/store';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -32,11 +32,24 @@ export default function ClassDetailPage({ classId, discipline, onBack }: Props) 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'student' | 'activity'; id: string } | null>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const [bimesters, setBimesters] = useState<Bimester[]>([]);
+  const [activeBimesterId, setActiveBimesterId] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const reload = async () => {
-    const c = await getClassById(classId);
+    const [c, bList] = await Promise.all([
+      getClassById(classId),
+      getBimesters()
+    ]);
     setCls(c || null);
+    setBimesters(bList);
+
+    if (activeBimesterId === 0 && bList.length > 0) {
+      const now = new Date().toISOString().split('T')[0];
+      const current = bList.find(b => now >= b.startDate && now <= b.endDate) || bList[0];
+      setActiveBimesterId(current.id);
+    }
+
     if (selectedActivity && c) {
       const updated = c.activities.find(a => a.id === selectedActivity.id);
       if (updated) setSelectedActivity(updated);
@@ -44,7 +57,14 @@ export default function ClassDetailPage({ classId, discipline, onBack }: Props) 
     }
   };
 
-  const activities = (cls?.activities || []).filter(a => !discipline || a.discipline === discipline);
+  const activeBimester = bimesters.find(b => b.id === activeBimesterId);
+  const activities = (cls?.activities || [])
+    .filter(a => !discipline || a.discipline === discipline)
+    .filter(a => {
+      if (!activeBimester) return true;
+      const date = a.date.split('T')[0];
+      return date >= activeBimester.startDate && date <= activeBimester.endDate;
+    });
 
   useEffect(() => { reload(); }, [classId]);
 
@@ -170,6 +190,23 @@ export default function ClassDetailPage({ classId, discipline, onBack }: Props) 
             <p className="text-sm font-bold text-primary truncate -mt-0.5">{discipline}</p>
           )}
         </div>
+      </div>
+
+      {/* Bimester Selector */}
+      <div className="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide">
+        {bimesters.map(b => (
+          <button
+            key={b.id}
+            onClick={() => setActiveBimesterId(b.id)}
+            className={`px-4 h-9 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+              activeBimesterId === b.id
+                ? 'bg-primary text-primary-foreground shadow-md'
+                : 'bg-card text-muted-foreground border border-border hover:bg-secondary'
+            }`}
+          >
+            {b.name}
+          </button>
+        ))}
       </div>
 
       {/* Tabs */}

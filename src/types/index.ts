@@ -27,6 +27,13 @@ export interface UserSession {
   role: UserRole;
 }
 
+export interface Bimester {
+  id: number;
+  name: string;
+  startDate: string;
+  endDate: string;
+}
+
 export interface Assignment {
   classId: string;
   discipline: string;
