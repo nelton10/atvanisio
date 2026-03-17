@@ -13,7 +13,7 @@ import {
 import ConfirmModal from '@/components/ConfirmModal';
 
 interface Props {
-  onOpenClass: (id: string) => void;
+  onOpenClass: (id: string, discipline: string) => void;
 }
 
 export default function DashboardPage({ onOpenClass }: Props) {
@@ -26,7 +26,8 @@ export default function DashboardPage({ onOpenClass }: Props) {
   const [search, setSearch] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [setupMode, setSetupMode] = useState(false);
-  const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
+  const [selectedAssignments, setSelectedAssignments] = useState<Assignment[]>([]);
+  const [newDiscipline, setNewDiscipline] = useState('');
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBtn, setShowInstallBtn] = useState(false);
 
@@ -41,8 +42,9 @@ export default function DashboardPage({ onOpenClass }: Props) {
     setAssignments(assignList);
     
     if (user?.role === 'prof') {
-      const myClasses = assignList[user.name];
-      if (!myClasses || myClasses.length === 0) {
+      const myAssignments = assignList[user.name] || [];
+      setSelectedAssignments(myAssignments);
+      if (myAssignments.length === 0) {
         setSetupMode(true);
       }
     }
@@ -73,7 +75,7 @@ export default function DashboardPage({ onOpenClass }: Props) {
 
   const visibleClasses = isGestao
     ? classes
-    : classes.filter(c => (assignments[user!.name] || []).includes(c.id));
+    : classes.filter(c => (assignments[user!.name] || []).some(a => a.classId === c.id));
 
   const filteredClasses = visibleClasses.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase())
@@ -137,55 +139,96 @@ export default function DashboardPage({ onOpenClass }: Props) {
 
   const handleSetupSave = async () => {
     if (user) {
-      await setProfessorClasses(user.name, selectedClassIds);
+      await setProfessorClasses(user.name, selectedAssignments);
       setSetupMode(false);
       loadData();
     }
   };
 
-  const toggleClassSelection = (id: string) => {
-    setSelectedClassIds(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-    );
+  const addAssignment = (classId: string) => {
+    if (!newDiscipline.trim()) {
+      alert('Informe a disciplina.');
+      return;
+    }
+    const exists = selectedAssignments.some(a => a.classId === classId && a.discipline === newDiscipline.trim());
+    if (exists) {
+      alert('Esta disciplina já foi adicionada para esta turma.');
+      return;
+    }
+    setSelectedAssignments(prev => [...prev, { classId, discipline: newDiscipline.trim() }]);
+  };
+
+  const removeAssignment = (classId: string, discipline: string) => {
+    setSelectedAssignments(prev => prev.filter(a => !(a.classId === classId && a.discipline === discipline)));
   };
 
   // Professor setup mode
   if (setupMode) {
     return (
       <div className="p-4 max-w-lg mx-auto">
-        <h2 className="text-xl font-bold text-foreground font-display mb-2">Configuração Inicial</h2>
-        <p className="text-sm text-muted-foreground mb-6">Selecione as turmas que você leciona:</p>
+        <h2 className="text-xl font-bold text-foreground font-display mb-2">Configuração das Turmas</h2>
+        <p className="text-sm text-muted-foreground mb-6">Adicione as turmas e disciplinas que você leciona:</p>
+        
+        <div className="bg-card rounded-xl border border-border p-4 mb-6 space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-muted-foreground uppercase mb-1.5 ml-1">1. Qual a disciplina?</label>
+            <input 
+              type="text" 
+              placeholder="Ex: Matemática, Português..." 
+              value={newDiscipline}
+              onChange={e => setNewDiscipline(e.target.value)}
+              className="w-full h-11 px-3 rounded-lg border border-input bg-background"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-muted-foreground uppercase mb-1.5 ml-1">2. Clique para adicionar às turmas:</label>
+            <div className="grid grid-cols-2 gap-2">
+              {classes.map(c => (
+                <button
+                  key={c.id}
+                  onClick={() => addAssignment(c.id)}
+                  className="h-10 px-3 rounded-lg border border-primary text-primary text-xs font-bold hover:bg-primary/5 transition-colors text-left truncate"
+                >
+                  + {c.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
         <div className="space-y-2 mb-6">
-          {classes.map(c => (
-            <motion.button
-              key={c.id}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => toggleClassSelection(c.id)}
-              className={`w-full flex items-center justify-between p-4 rounded-xl border transition-colors ${
-                selectedClassIds.includes(c.id)
-                  ? 'border-primary bg-primary/5'
-                  : 'border-border bg-card'
-              }`}
-            >
-              <span className="font-medium text-foreground">{c.name}</span>
-              {selectedClassIds.includes(c.id) && (
-                <Check size={20} className="text-primary" />
-              )}
-            </motion.button>
-          ))}
-          {classes.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              Nenhuma turma cadastrada. Peça à gestão para criar turmas.
-            </p>
+          <label className="block text-xs font-bold text-muted-foreground uppercase mb-2 ml-1">Minhas Turmas Atuais:</label>
+          {selectedAssignments.map((a, i) => {
+            const cls = classes.find(c => c.id === a.classId);
+            return (
+              <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-primary/20 bg-primary/5">
+                <div>
+                  <div className="text-sm font-bold text-foreground">{cls?.name}</div>
+                  <div className="text-xs text-primary font-medium">{a.discipline}</div>
+                </div>
+                <button 
+                  onClick={() => removeAssignment(a.classId, a.discipline)}
+                  className="p-2 text-destructive hover:bg-destructive/10 rounded-lg"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            );
+          })}
+          {selectedAssignments.length === 0 && (
+            <div className="text-center py-6 border-2 border-dashed border-border rounded-xl">
+              <p className="text-xs text-muted-foreground font-medium">Nenhuma turma adicionada ainda.</p>
+            </div>
           )}
         </div>
+
         <motion.button
           whileTap={{ scale: 0.97 }}
           onClick={handleSetupSave}
-          disabled={selectedClassIds.length === 0}
-          className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-sm disabled:opacity-50 transition-opacity"
+          disabled={selectedAssignments.length === 0}
+          className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-bold text-sm disabled:opacity-50 transition-opacity"
         >
-          Confirmar Seleção
+          Salvar Configurações
         </motion.button>
       </div>
     );
@@ -296,7 +339,7 @@ export default function DashboardPage({ onOpenClass }: Props) {
       {/* Class list */}
       <div className="space-y-2">
         <AnimatePresence>
-          {filteredClasses.map(cls => {
+          {isGestao ? filteredClasses.map(cls => {
             const totalStudents = cls.students.length;
             const totalActivities = cls.activities.length;
             const progress = totalStudents > 0 && totalActivities > 0
@@ -333,7 +376,7 @@ export default function DashboardPage({ onOpenClass }: Props) {
                     <div className="flex items-center justify-between mb-2">
                       <motion.button
                         whileTap={{ scale: 0.98 }}
-                        onClick={() => onOpenClass(cls.id)}
+                        onClick={() => onOpenClass(cls.id, '')}
                         className="text-left flex-1"
                       >
                         <h3 className="text-base font-bold text-foreground font-display">{cls.name}</h3>
@@ -342,22 +385,20 @@ export default function DashboardPage({ onOpenClass }: Props) {
                           <span className="flex items-center gap-1"><BookOpen size={12} /> {totalActivities} atividades</span>
                         </div>
                       </motion.button>
-                      {isGestao && (
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => { setEditingId(cls.id); setEditName(cls.name); }}
-                            className="w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-secondary transition-colors"
-                          >
-                            <Edit3 size={16} />
-                          </button>
-                          <button
-                            onClick={() => setDeleteTarget(cls.id)}
-                            className="w-9 h-9 rounded-lg flex items-center justify-center text-destructive hover:bg-destructive/10 transition-colors"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => { setEditingId(cls.id); setEditName(cls.name); }}
+                          className="w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-secondary transition-colors"
+                        >
+                          <Edit3 size={16} />
+                        </button>
+                        <button
+                          onClick={() => setDeleteTarget(cls.id)}
+                          className="w-9 h-9 rounded-lg flex items-center justify-center text-destructive hover:bg-destructive/10 transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
                     {totalStudents > 0 && totalActivities > 0 && (
                       <div className="flex items-center gap-3">
@@ -374,6 +415,56 @@ export default function DashboardPage({ onOpenClass }: Props) {
                       </div>
                     )}
                   </>
+                )}
+              </motion.div>
+            );
+          }) : (assignments[user!.name] || []).map((a, idx) => {
+            const cls = classes.find(c => c.id === a.classId);
+            if (!cls) return null;
+            
+            const totalStudents = cls.students.length;
+            const activities = cls.activities.filter(act => act.discipline === a.discipline);
+            const totalActivities = activities.length;
+            const progress = totalStudents > 0 && totalActivities > 0
+              ? (activities.reduce((s, act) => s + act.completedIds.length, 0) / (totalStudents * totalActivities)) * 100
+              : 0;
+
+            return (
+              <motion.div
+                key={`${a.classId}-${a.discipline}-${idx}`}
+                className="bg-card rounded-xl border border-border p-4 shadow-sm"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <motion.button
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => onOpenClass(a.classId, a.discipline)}
+                    className="text-left flex-1"
+                  >
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-bold text-foreground font-display">{cls.name}</h3>
+                      <span className="px-1.5 py-0.5 rounded-md bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider">
+                        {a.discipline}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1"><Users size={12} /> {totalStudents} alunos</span>
+                      <span className="flex items-center gap-1"><BookOpen size={12} /> {totalActivities} atividades</span>
+                    </div>
+                  </motion.button>
+                </div>
+                {totalStudents > 0 && totalActivities > 0 && (
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progress}%` }}
+                        className="h-full bg-primary rounded-full"
+                      />
+                    </div>
+                    <span className="text-xs font-bold text-muted-foreground tabular-nums">
+                      {progress.toFixed(0)}%
+                    </span>
+                  </div>
                 )}
               </motion.div>
             );

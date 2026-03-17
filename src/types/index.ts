@@ -10,6 +10,7 @@ export interface Activity {
   completedIds: string[];
   image?: string;
   author: string;
+  discipline: string;
 }
 
 export interface SchoolClass {
@@ -26,6 +27,11 @@ export interface UserSession {
   role: UserRole;
 }
 
+export interface Assignment {
+  classId: string;
+  discipline: string;
+}
+
 export interface ProfessorAssignments {
-  [professorName: string]: string[]; // class ids
+  [professorName: string]: Assignment[];
 }

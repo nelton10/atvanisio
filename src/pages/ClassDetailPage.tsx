@@ -16,10 +16,11 @@ import ConfirmModal from '@/components/ConfirmModal';
 
 interface Props {
   classId: string;
+  discipline: string;
   onBack: () => void;
 }
 
-export default function ClassDetailPage({ classId, onBack }: Props) {
+export default function ClassDetailPage({ classId, discipline, onBack }: Props) {
   const { user } = useAuth();
   const [cls, setCls] = useState<SchoolClass | null>(null);
   const [tab, setTab] = useState<'students' | 'activities'>('activities');
@@ -43,6 +44,8 @@ export default function ClassDetailPage({ classId, onBack }: Props) {
     }
   };
 
+  const activities = (cls?.activities || []).filter(a => !discipline || a.discipline === discipline);
+
   useEffect(() => { reload(); }, [classId]);
 
   if (!cls) return <div className="p-4 text-center text-muted-foreground">Carregando...</div>;
@@ -65,7 +68,7 @@ export default function ClassDetailPage({ classId, onBack }: Props) {
   const handleAddActivity = async () => {
     if (!newActivityTitle.trim() || !user) return;
     try {
-      await addActivity(classId, newActivityTitle.trim(), user.name);
+      await addActivity(classId, newActivityTitle.trim(), user.name, discipline);
       setNewActivityTitle('');
       await reload();
     } catch (error: any) {
@@ -78,7 +81,7 @@ export default function ClassDetailPage({ classId, onBack }: Props) {
     if (!user) return;
     try {
       const dateTitle = new Date().toLocaleDateString('pt-BR');
-      await addActivity(classId, dateTitle, user.name);
+      await addActivity(classId, dateTitle, user.name, discipline);
       setNewActivityTitle('');
       await reload();
     } catch (error: any) {
@@ -161,7 +164,12 @@ export default function ClassDetailPage({ classId, onBack }: Props) {
         >
           <ArrowLeft size={20} />
         </motion.button>
-        <h2 className="text-xl sm:text-2xl font-bold text-foreground font-display truncate">{cls.name}</h2>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground font-display truncate leading-tight">{cls.name}</h2>
+          {discipline && (
+            <p className="text-sm font-bold text-primary truncate -mt-0.5">{discipline}</p>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}
@@ -274,7 +282,7 @@ export default function ClassDetailPage({ classId, onBack }: Props) {
           </div>
 
           <div className="space-y-2">
-            {cls.activities.map(act => {
+            {activities.map(act => {
               const actProgress = totalStudents > 0
                 ? (act.completedIds.length / totalStudents) * 100
                 : 0;
@@ -317,9 +325,9 @@ export default function ClassDetailPage({ classId, onBack }: Props) {
                 </motion.div>
               );
             })}
-            {cls.activities.length === 0 && (
+            {activities.length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-8">
-                Nenhuma atividade registrada. Comece uma nova para acompanhar o progresso.
+                Nenhuma atividade registrada para {discipline || 'esta turma'}. Comece uma nova para acompanhar o progresso.
               </p>
             )}
           </div>

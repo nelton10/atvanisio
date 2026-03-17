@@ -29,42 +29,62 @@ export default function ReportsPage({ onBack }: Props) {
         getAssignments()
       ]);
       
+      let filteredClasses = allClasses;
+      const studentReports: StudentReport[] = [];
+
       if (user?.role === 'gestao') {
-        setClasses(allClasses);
+        filteredClasses = allClasses;
       } else if (user) {
-        const myClassIds = allAssignments[user.name] || [];
-        setClasses(allClasses.filter(c => myClassIds.includes(c.id)));
+        const myAssignments = allAssignments[user.name] || [];
+        const myClassIds = myAssignments.map(a => a.classId);
+        filteredClasses = allClasses.filter(c => myClassIds.includes(c.id));
       }
+
+      for (const cls of filteredClasses) {
+        let disciplines: string[] = [];
+        if (user?.role === 'gestao') {
+          disciplines = Array.from(new Set(cls.activities.map(a => a.discipline)));
+          if (disciplines.length === 0) disciplines = [''];
+        } else {
+          disciplines = allAssignments[user!.name]
+            ?.filter(a => a.classId === cls.id)
+            ?.map(a => a.discipline) || [];
+        }
+
+        for (const disc of disciplines) {
+          cls.students.forEach(student => {
+            const activities = cls.activities.filter(a => !disc || a.discipline === disc);
+            const total = activities.length;
+            const completed = activities.filter(a => a.completedIds.includes(student.id)).length;
+            
+            studentReports.push({
+              name: student.name,
+              className: disc ? `${cls.name} (${disc})` : cls.name,
+              completed,
+              total,
+              percentage: total > 0 ? (completed / total) * 100 : 0,
+            });
+          });
+        }
+      }
+
+      setClasses(filteredClasses);
+      setAllReports(studentReports);
     };
     loadData();
   }, [user]);
 
-  const targetClasses = selectedClassId === 'all'
-    ? classes
-    : classes.filter(c => c.id === selectedClassId);
+  const [allReports, setAllReports] = useState<StudentReport[]>([]);
 
-  const studentReports: StudentReport[] = [];
-  targetClasses.forEach(cls => {
-    cls.students.forEach(student => {
-      const totalActivities = cls.activities.length;
-      const completedActivities = cls.activities.filter(a =>
-        a.completedIds.includes(student.id)
-      ).length;
-      studentReports.push({
-        name: student.name,
-        className: cls.name,
-        completed: completedActivities,
-        total: totalActivities,
-        percentage: totalActivities > 0 ? (completedActivities / totalActivities) * 100 : 0,
-      });
-    });
-  });
+  const filteredReports = selectedClassId === 'all'
+    ? allReports
+    : allReports.filter(r => r.className.includes(classes.find(c => c.id === selectedClassId)?.name || ''));
 
-  studentReports.sort((a, b) => b.percentage - a.percentage);
+  const sortedReports = [...filteredReports].sort((a, b) => b.percentage - a.percentage);
 
   const exportCSV = () => {
     const header = 'Posição,Aluno,Turma,Concluídas,Total,Percentual\n';
-    const rows = studentReports.map((r, i) =>
+    const rows = sortedReports.map((r, i) =>
       `${i + 1},"${r.name}","${r.className}",${r.completed},${r.total},"${r.percentage.toFixed(1).replace('.', ',')}%"`
     ).join('\n');
     const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
@@ -112,7 +132,7 @@ export default function ReportsPage({ onBack }: Props) {
         <motion.button
           whileTap={{ scale: 0.97 }}
           onClick={exportCSV}
-          disabled={studentReports.length === 0}
+          disabled={sortedReports.length === 0}
           className="flex-1 flex items-center justify-center gap-2 h-11 px-4 rounded-xl bg-card border border-border text-sm font-bold text-foreground hover:bg-secondary transition-colors disabled:opacity-50 shadow-sm"
         >
           <Download size={18} /> Exportar CSV
@@ -120,7 +140,7 @@ export default function ReportsPage({ onBack }: Props) {
         <motion.button
           whileTap={{ scale: 0.97 }}
           onClick={handlePrint}
-          disabled={studentReports.length === 0}
+          disabled={sortedReports.length === 0}
           className="flex-1 flex items-center justify-center gap-2 h-11 px-4 rounded-xl bg-card border border-border text-sm font-bold text-foreground hover:bg-secondary transition-colors disabled:opacity-50 shadow-sm"
         >
           <Printer size={18} /> Imprimir
@@ -128,7 +148,7 @@ export default function ReportsPage({ onBack }: Props) {
       </div>
 
       {/* Table */}
-      {studentReports.length > 0 ? (
+      {sortedReports.length > 0 ? (
         <div className="rounded-xl border border-border overflow-hidden bg-card">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -141,7 +161,7 @@ export default function ReportsPage({ onBack }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {studentReports.map((r, i) => (
+                {sortedReports.map((r, i) => (
                   <tr key={`${r.name}-${r.className}-${i}`} className="border-b border-border last:border-0">
                     <td className="px-4 py-3 tabular-nums text-muted-foreground">{i + 1}</td>
                     <td className="px-4 py-3 font-medium text-foreground">{r.name}</td>

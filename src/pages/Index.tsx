@@ -12,13 +12,32 @@ type View = 'dashboard' | 'class' | 'reports';
 export default function Index() {
   const { user, logout } = useAuth();
   const [view, setView] = useState<View>('dashboard');
-  const [selectedClassId, setSelectedClassId] = useState<string>('');
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  const [selectedDiscipline, setSelectedDiscipline] = useState<string>('');
 
   if (!user) return <LoginPage />;
 
-  const openClass = (id: string) => {
-    setSelectedClassId(id);
-    setView('class');
+  const renderContent = () => {
+    if (view === 'dashboard') {
+      return <DashboardPage onOpenClass={(id, disc) => {
+        setSelectedClassId(id);
+        setSelectedDiscipline(disc);
+        setView('class');
+      }} />;
+    }
+    if (view === 'class' && selectedClassId) {
+      return (
+        <ClassDetailPage 
+          classId={selectedClassId} 
+          discipline={selectedDiscipline}
+          onBack={() => setView('dashboard')} 
+        />
+      );
+    }
+    if (view === 'reports') {
+      return <ReportsPage onBack={() => setView('dashboard')} />;
+    }
+    return null;
   };
 
   return (
@@ -48,14 +67,7 @@ export default function Index() {
 
       {/* Content */}
       <main className="flex-1 pb-20">
-        {view === 'dashboard' && <DashboardPage onOpenClass={openClass} />}
-        {view === 'class' && (
-          <ClassDetailPage
-            classId={selectedClassId}
-            onBack={() => setView('dashboard')}
-          />
-        )}
-        {view === 'reports' && <ReportsPage onBack={() => setView('dashboard')} />}
+        {renderContent()}
       </main>
 
       {/* Bottom nav */}

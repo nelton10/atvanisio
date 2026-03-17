@@ -13,7 +13,7 @@ import {
   arrayUnion,
   arrayRemove
 } from "firebase/firestore";
-import { SchoolClass, ProfessorAssignments, UserSession, Activity } from '@/types';
+import { SchoolClass, ProfessorAssignments, UserSession, Activity, Assignment } from '@/types';
 
 const CLASSES_COLLECTION = 'classes';
 const ASSIGNMENTS_COLLECTION = 'assignments';
@@ -53,6 +53,18 @@ export async function addClass(name: string): Promise<SchoolClass> {
     return newClass;
   } catch (error) {
     console.error("Firestore addClass error:", error);
+    throw error;
+  }
+}
+
+export async function setProfessorClasses(professorName: string, assignments: Assignment[]) {
+  try {
+    const assignmentsRef = doc(db, ASSIGNMENTS_COLLECTION, 'global');
+    await updateDoc(assignmentsRef, {
+      [professorName]: assignments
+    });
+  } catch (error) {
+    console.error("Firestore setProfessorClasses error:", error);
     throw error;
   }
 }
@@ -130,7 +142,7 @@ export async function removeStudent(classId: string, studentId: string) {
 }
 
 // Activities
-export async function addActivity(classId: string, title: string, author: string, image?: string) {
+export async function addActivity(classId: string, title: string, author: string, discipline: string, image?: string) {
   try {
     const classRef = doc(db, CLASSES_COLLECTION, classId);
     const newActivity = cleanObject({
@@ -140,6 +152,7 @@ export async function addActivity(classId: string, title: string, author: string
       completedIds: [],
       image,
       author,
+      discipline,
     });
     await updateDoc(classRef, {
       activities: arrayUnion(newActivity)
@@ -250,10 +263,6 @@ export async function getAssignments(): Promise<ProfessorAssignments> {
   return {};
 }
 
-export async function setProfessorClasses(name: string, classIds: string[]) {
-  const docRef = doc(db, ASSIGNMENTS_COLLECTION, 'global');
-  await setDoc(docRef, { [name]: classIds }, { merge: true });
-}
 
 // Session
 export function getSession(): UserSession | null {
