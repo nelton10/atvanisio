@@ -21,7 +21,11 @@ export default function ReportsPage({ onBack }: Props) {
   const [selectedClassId, setSelectedClassId] = useState<string>('all');
 
   useEffect(() => {
-    setClasses(getClasses());
+    const loadData = async () => {
+      const cls = await getClasses();
+      setClasses(cls);
+    };
+    loadData();
   }, []);
 
   const targetClasses = selectedClassId === 'all'

@@ -33,8 +33,8 @@ export default function ClassDetailPage({ classId, onBack }: Props) {
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const reload = () => {
-    const c = getClassById(classId);
+  const reload = async () => {
+    const c = await getClassById(classId);
     setCls(c || null);
     if (selectedActivity && c) {
       const updated = c.activities.find(a => a.id === selectedActivity.id);
@@ -47,60 +47,60 @@ export default function ClassDetailPage({ classId, onBack }: Props) {
 
   if (!cls) return <div className="p-4 text-center text-muted-foreground">Carregando...</div>;
 
-  const handleAddStudent = () => {
+  const handleAddStudent = async () => {
     if (!newStudentName.trim()) return;
-    addStudent(classId, newStudentName.trim());
+    await addStudent(classId, newStudentName.trim());
     setNewStudentName('');
     reload();
   };
 
-  const handleDeleteStudent = () => {
+  const handleDeleteStudent = async () => {
     if (deleteTarget?.type === 'student') {
-      removeStudent(classId, deleteTarget.id);
+      await removeStudent(classId, deleteTarget.id);
       setDeleteTarget(null);
       reload();
     }
   };
 
-  const handleAddActivity = () => {
+  const handleAddActivity = async () => {
     if (!newActivityTitle.trim() || !user) return;
-    addActivity(classId, newActivityTitle.trim(), user.name);
+    await addActivity(classId, newActivityTitle.trim(), user.name);
     setNewActivityTitle('');
     reload();
   };
 
-  const handleAddActivityWithDate = () => {
+  const handleAddActivityWithDate = async () => {
     if (!user) return;
     const dateTitle = new Date().toLocaleDateString('pt-BR');
-    addActivity(classId, dateTitle, user.name);
+    await addActivity(classId, dateTitle, user.name);
     setNewActivityTitle('');
     reload();
   };
 
-  const handleDeleteActivity = () => {
+  const handleDeleteActivity = async () => {
     if (deleteTarget?.type === 'activity') {
-      deleteActivity(classId, deleteTarget.id);
+      await deleteActivity(classId, deleteTarget.id);
       setDeleteTarget(null);
       setSelectedActivity(null);
       reload();
     }
   };
 
-  const handleToggle = (studentId: string) => {
+  const handleToggle = async (studentId: string) => {
     if (!selectedActivity) return;
-    toggleStudentCompletion(classId, selectedActivity.id, studentId);
+    await toggleStudentCompletion(classId, selectedActivity.id, studentId);
     reload();
   };
 
-  const handleMarkAll = () => {
+  const handleMarkAll = async () => {
     if (!selectedActivity) return;
-    markAllComplete(classId, selectedActivity.id);
+    await markAllComplete(classId, selectedActivity.id);
     reload();
   };
 
-  const handleClearAll = () => {
+  const handleClearAll = async () => {
     if (!selectedActivity) return;
-    clearAllCompletion(classId, selectedActivity.id);
+    await clearAllCompletion(classId, selectedActivity.id);
     reload();
   };
 
@@ -108,22 +108,22 @@ export default function ClassDetailPage({ classId, onBack }: Props) {
     const file = e.target.files?.[0];
     if (!file || !selectedActivity) return;
     const reader = new FileReader();
-    reader.onload = () => {
-      updateActivity(classId, selectedActivity.id, { image: reader.result as string });
+    reader.onload = async () => {
+      await updateActivity(classId, selectedActivity.id, { image: reader.result as string });
       reload();
     };
     reader.readAsDataURL(file);
   };
 
-  const handleRemoveImage = () => {
+  const handleRemoveImage = async () => {
     if (!selectedActivity) return;
-    updateActivity(classId, selectedActivity.id, { image: undefined });
+    await updateActivity(classId, selectedActivity.id, { image: undefined });
     reload();
   };
 
-  const handleSaveTitle = () => {
+  const handleSaveTitle = async () => {
     if (!selectedActivity || !editingActivityTitle.trim()) return;
-    updateActivity(classId, selectedActivity.id, { title: editingActivityTitle.trim() });
+    await updateActivity(classId, selectedActivity.id, { title: editingActivityTitle.trim() });
     setIsEditingTitle(false);
     reload();
   };

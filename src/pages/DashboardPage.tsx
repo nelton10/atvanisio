@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { SchoolClass } from '@/types';
+import { SchoolClass, ProfessorAssignments } from '@/types';
 import {
   getClasses, addClass, deleteClass, updateClass, exportBackup, importBackup,
   getAssignments, setProfessorClasses
@@ -19,6 +19,7 @@ interface Props {
 export default function DashboardPage({ onOpenClass }: Props) {
   const { user } = useAuth();
   const [classes, setClasses] = useState<SchoolClass[]>([]);
+  const [assignments, setAssignments] = useState<ProfessorAssignments>({});
   const [newClassName, setNewClassName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
@@ -28,20 +29,26 @@ export default function DashboardPage({ onOpenClass }: Props) {
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
 
   const isGestao = user?.role === 'gestao';
-  const assignments = getAssignments();
 
-  useEffect(() => {
-    setClasses(getClasses());
-  }, []);
-
-  useEffect(() => {
+  const loadData = async () => {
+    const [clsList, assignList] = await Promise.all([
+      getClasses(),
+      getAssignments()
+    ]);
+    setClasses(clsList);
+    setAssignments(assignList);
+    
     if (user?.role === 'prof') {
-      const myClasses = assignments[user.name];
+      const myClasses = assignList[user.name];
       if (!myClasses || myClasses.length === 0) {
         setSetupMode(true);
       }
     }
-  }, [user, assignments]);
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [user]);
 
   const visibleClasses = isGestao
     ? classes
@@ -51,30 +58,31 @@ export default function DashboardPage({ onOpenClass }: Props) {
     c.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!newClassName.trim()) return;
-    addClass(newClassName.trim());
+    await addClass(newClassName.trim());
     setNewClassName('');
-    setClasses(getClasses());
+    loadData();
   };
 
-  const handleRename = (id: string) => {
+  const handleRename = async (id: string) => {
     if (!editName.trim()) return;
-    updateClass(id, { name: editName.trim() });
+    await updateClass(id, { name: editName.trim() });
     setEditingId(null);
-    setClasses(getClasses());
+    loadData();
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (deleteTarget) {
-      deleteClass(deleteTarget);
+      await deleteClass(deleteTarget);
       setDeleteTarget(null);
-      setClasses(getClasses());
+      loadData();
     }
   };
 
-  const handleExport = () => {
-    const blob = new Blob([exportBackup()], { type: 'application/json' });
+  const handleExport = async () => {
+    const backupContent = await exportBackup();
+    const blob = new Blob([backupContent], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -91,9 +99,9 @@ export default function DashboardPage({ onOpenClass }: Props) {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
         const reader = new FileReader();
-        reader.onload = () => {
+        reader.onload = async () => {
           try {
-            importBackup(reader.result as string);
+            await importBackup(reader.result as string);
             alert('Dados importados com sucesso!');
             window.location.reload();
           } catch (err: any) {
@@ -106,10 +114,11 @@ export default function DashboardPage({ onOpenClass }: Props) {
     input.click();
   };
 
-  const handleSetupSave = () => {
+  const handleSetupSave = async () => {
     if (user) {
-      setProfessorClasses(user.name, selectedClassIds);
+      await setProfessorClasses(user.name, selectedClassIds);
       setSetupMode(false);
+      loadData();
     }
   };
 

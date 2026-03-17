@@ -1,7 +1,22 @@
-import { SchoolClass, ProfessorAssignments, UserSession } from '@/types';
+import { db } from './firebase';
+import { 
+  collection, 
+  getDocs, 
+  doc, 
+  getDoc, 
+  setDoc, 
+  updateDoc, 
+  deleteDoc, 
+  query, 
+  where,
+  FieldValue,
+  arrayUnion,
+  arrayRemove
+} from "firebase/firestore";
+import { SchoolClass, ProfessorAssignments, UserSession, Activity } from '@/types';
 
-const CLASSES_KEY = 'portal_classes';
-const ASSIGNMENTS_KEY = 'portal_assignments';
+const CLASSES_COLLECTION = 'classes';
+const ASSIGNMENTS_COLLECTION = 'assignments';
 const SESSION_KEY = 'portal_session';
 const REMEMBER_KEY = 'portal_remember';
 
@@ -10,165 +25,162 @@ function generateId(): string {
 }
 
 // Classes
-export function getClasses(): SchoolClass[] {
-  const data = localStorage.getItem(CLASSES_KEY);
-  return data ? JSON.parse(data) : [];
+export async function getClasses(): Promise<SchoolClass[]> {
+  const querySnapshot = await getDocs(collection(db, CLASSES_COLLECTION));
+  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SchoolClass));
 }
 
-export function saveClasses(classes: SchoolClass[]) {
-  localStorage.setItem(CLASSES_KEY, JSON.stringify(classes));
-}
-
-export function addClass(name: string): SchoolClass {
-  const classes = getClasses();
-  const newClass: SchoolClass = { id: generateId(), name, students: [], activities: [] };
-  classes.push(newClass);
-  saveClasses(classes);
+export async function addClass(name: string): Promise<SchoolClass> {
+  const id = generateId();
+  const newClass: SchoolClass = { id, name, students: [], activities: [] };
+  await setDoc(doc(db, CLASSES_COLLECTION, id), newClass);
   return newClass;
 }
 
-export function updateClass(id: string, updates: Partial<SchoolClass>) {
-  const classes = getClasses();
-  const idx = classes.findIndex(c => c.id === id);
-  if (idx !== -1) {
-    classes[idx] = { ...classes[idx], ...updates };
-    saveClasses(classes);
+export async function updateClass(id: string, updates: Partial<SchoolClass>) {
+  const classRef = doc(db, CLASSES_COLLECTION, id);
+  await updateDoc(classRef, updates);
+}
+
+export async function deleteClass(id: string) {
+  await deleteDoc(doc(db, CLASSES_COLLECTION, id));
+}
+
+export async function getClassById(id: string): Promise<SchoolClass | undefined> {
+  const docRef = doc(db, CLASSES_COLLECTION, id);
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    return { id: docSnap.id, ...docSnap.data() } as SchoolClass;
   }
-  return classes;
-}
-
-export function deleteClass(id: string) {
-  const classes = getClasses().filter(c => c.id !== id);
-  saveClasses(classes);
-  return classes;
-}
-
-export function getClassById(id: string): SchoolClass | undefined {
-  return getClasses().find(c => c.id === id);
+  return undefined;
 }
 
 // Students
-export function addStudent(classId: string, name: string) {
-  const classes = getClasses();
-  const cls = classes.find(c => c.id === classId);
+export async function addStudent(classId: string, name: string) {
+  const classRef = doc(db, CLASSES_COLLECTION, classId);
+  const cls = await getClassById(classId);
   if (cls) {
-    cls.students.push({ id: generateId(), name });
-    saveClasses(classes);
+    const newStudent = { id: generateId(), name };
+    await updateDoc(classRef, {
+      students: arrayUnion(newStudent)
+    });
   }
-  return classes;
 }
 
-export function removeStudent(classId: string, studentId: string) {
-  const classes = getClasses();
-  const cls = classes.find(c => c.id === classId);
+export async function removeStudent(classId: string, studentId: string) {
+  const classRef = doc(db, CLASSES_COLLECTION, classId);
+  const cls = await getClassById(classId);
   if (cls) {
-    cls.students = cls.students.filter(s => s.id !== studentId);
-    cls.activities.forEach(a => {
-      a.completedIds = a.completedIds.filter(id => id !== studentId);
-    });
-    saveClasses(classes);
+    const studentToRemove = cls.students.find(s => s.id === studentId);
+    if (studentToRemove) {
+      // Also clean up completedIds in activities
+      const updatedActivities = cls.activities.map(a => ({
+        ...a,
+        completedIds: a.completedIds.filter(id => id !== studentId)
+      }));
+      
+      await updateDoc(classRef, {
+        students: arrayRemove(studentToRemove),
+        activities: updatedActivities
+      });
+    }
   }
-  return classes;
 }
 
 // Activities
-export function addActivity(classId: string, title: string, author: string, image?: string) {
-  const classes = getClasses();
-  const cls = classes.find(c => c.id === classId);
-  if (cls) {
-    cls.activities.push({
-      id: generateId(),
-      title,
-      date: new Date().toISOString(),
-      completedIds: [],
-      image,
-      author,
-    });
-    saveClasses(classes);
-  }
-  return classes;
+export async function addActivity(classId: string, title: string, author: string, image?: string) {
+  const classRef = doc(db, CLASSES_COLLECTION, classId);
+  const newActivity: Activity = {
+    id: generateId(),
+    title,
+    date: new Date().toISOString(),
+    completedIds: [],
+    image,
+    author,
+  };
+  await updateDoc(classRef, {
+    activities: arrayUnion(newActivity)
+  });
 }
 
-export function updateActivity(classId: string, activityId: string, updates: Partial<{ title: string; image: string | undefined; completedIds: string[] }>) {
-  const classes = getClasses();
-  const cls = classes.find(c => c.id === classId);
+export async function updateActivity(classId: string, activityId: string, updates: Partial<{ title: string; image: string | undefined; completedIds: string[] }>) {
+  const classRef = doc(db, CLASSES_COLLECTION, classId);
+  const cls = await getClassById(classId);
   if (cls) {
-    const act = cls.activities.find(a => a.id === activityId);
-    if (act) {
-      Object.assign(act, updates);
-      saveClasses(classes);
-    }
+    const updatedActivities = cls.activities.map(a => 
+      a.id === activityId ? { ...a, ...updates } : a
+    );
+    await updateDoc(classRef, { activities: updatedActivities });
   }
-  return classes;
 }
 
-export function deleteActivity(classId: string, activityId: string) {
-  const classes = getClasses();
-  const cls = classes.find(c => c.id === classId);
+export async function deleteActivity(classId: string, activityId: string) {
+  const classRef = doc(db, CLASSES_COLLECTION, classId);
+  const cls = await getClassById(classId);
   if (cls) {
-    cls.activities = cls.activities.filter(a => a.id !== activityId);
-    saveClasses(classes);
+    const updatedActivities = cls.activities.filter(a => a.id !== activityId);
+    await updateDoc(classRef, { activities: updatedActivities });
   }
-  return classes;
 }
 
-export function toggleStudentCompletion(classId: string, activityId: string, studentId: string) {
-  const classes = getClasses();
-  const cls = classes.find(c => c.id === classId);
+export async function toggleStudentCompletion(classId: string, activityId: string, studentId: string) {
+  const classRef = doc(db, CLASSES_COLLECTION, classId);
+  const cls = await getClassById(classId);
   if (cls) {
-    const act = cls.activities.find(a => a.id === activityId);
-    if (act) {
-      if (act.completedIds.includes(studentId)) {
-        act.completedIds = act.completedIds.filter(id => id !== studentId);
-      } else {
-        act.completedIds.push(studentId);
+    const updatedActivities = cls.activities.map(a => {
+      if (a.id === activityId) {
+        const completedIds = a.completedIds.includes(studentId)
+          ? a.completedIds.filter(id => id !== studentId)
+          : [...a.completedIds, studentId];
+        return { ...a, completedIds };
       }
-      saveClasses(classes);
-    }
+      return a;
+    });
+    await updateDoc(classRef, { activities: updatedActivities });
   }
-  return classes;
 }
 
-export function markAllComplete(classId: string, activityId: string) {
-  const classes = getClasses();
-  const cls = classes.find(c => c.id === classId);
+export async function markAllComplete(classId: string, activityId: string) {
+  const classRef = doc(db, CLASSES_COLLECTION, classId);
+  const cls = await getClassById(classId);
   if (cls) {
-    const act = cls.activities.find(a => a.id === activityId);
-    if (act) {
-      act.completedIds = cls.students.map(s => s.id);
-      saveClasses(classes);
-    }
+    const updatedActivities = cls.activities.map(a => {
+      if (a.id === activityId) {
+        return { ...a, completedIds: cls.students.map(s => s.id) };
+      }
+      return a;
+    });
+    await updateDoc(classRef, { activities: updatedActivities });
   }
-  return classes;
 }
 
-export function clearAllCompletion(classId: string, activityId: string) {
-  const classes = getClasses();
-  const cls = classes.find(c => c.id === classId);
+export async function clearAllCompletion(classId: string, activityId: string) {
+  const classRef = doc(db, CLASSES_COLLECTION, classId);
+  const cls = await getClassById(classId);
   if (cls) {
-    const act = cls.activities.find(a => a.id === activityId);
-    if (act) {
-      act.completedIds = [];
-      saveClasses(classes);
-    }
+    const updatedActivities = cls.activities.map(a => {
+      if (a.id === activityId) {
+        return { ...a, completedIds: [] };
+      }
+      return a;
+    });
+    await updateDoc(classRef, { activities: updatedActivities });
   }
-  return classes;
 }
 
 // Professor assignments
-export function getAssignments(): ProfessorAssignments {
-  const data = localStorage.getItem(ASSIGNMENTS_KEY);
-  return data ? JSON.parse(data) : {};
+export async function getAssignments(): Promise<ProfessorAssignments> {
+  const docRef = doc(db, ASSIGNMENTS_COLLECTION, 'global');
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    return docSnap.data() as ProfessorAssignments;
+  }
+  return {};
 }
 
-export function saveAssignments(assignments: ProfessorAssignments) {
-  localStorage.setItem(ASSIGNMENTS_KEY, JSON.stringify(assignments));
-}
-
-export function setProfessorClasses(name: string, classIds: string[]) {
-  const assignments = getAssignments();
-  assignments[name] = classIds;
-  saveAssignments(assignments);
+export async function setProfessorClasses(name: string, classIds: string[]) {
+  const docRef = doc(db, ASSIGNMENTS_COLLECTION, 'global');
+  await setDoc(docRef, { [name]: classIds }, { merge: true });
 }
 
 // Session
@@ -193,19 +205,23 @@ export function clearSession() {
 }
 
 // Backup
-export function exportBackup(): string {
+export async function exportBackup(): Promise<string> {
+  const classes = await getClasses();
+  const assignments = await getAssignments();
   return JSON.stringify({
-    classes: getClasses(),
-    assignments: getAssignments(),
+    classes,
+    assignments,
     exportDate: new Date().toISOString(),
   }, null, 2);
 }
 
-export function importBackup(json: string) {
+export async function importBackup(json: string) {
   const data = JSON.parse(json);
   
   if (Array.isArray(data)) {
-    saveClasses(data);
+    for (const cls of data) {
+      await setDoc(doc(db, CLASSES_COLLECTION, cls.id), cls);
+    }
     return;
   }
   
@@ -243,7 +259,9 @@ export function importBackup(json: string) {
       throw new Error('Nenhum dado de turmas ou alunos encontrado no arquivo.');
     }
     
-    saveClasses(newClasses);
+    for (const cls of newClasses) {
+      await setDoc(doc(db, CLASSES_COLLECTION, cls.id), cls);
+    }
     return;
   }
   
@@ -251,8 +269,14 @@ export function importBackup(json: string) {
     throw new Error('Formato de arquivo não reconhecido. Certifique-se de que é um backup válido.');
   }
 
-  if (data.classes) saveClasses(data.classes);
-  if (data.assignments) saveAssignments(data.assignments);
+  if (data.classes) {
+    for (const cls of data.classes) {
+      await setDoc(doc(db, CLASSES_COLLECTION, cls.id), cls);
+    }
+  }
+  if (data.assignments) {
+    await setDoc(doc(db, ASSIGNMENTS_COLLECTION, 'global'), data.assignments);
+  }
 }
 
 export { generateId };
