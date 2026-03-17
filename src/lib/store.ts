@@ -116,6 +116,22 @@ export async function addStudent(classId: string, name: string) {
   }
 }
 
+export async function toggleStudentExitProhibition(classId: string, studentId: string) {
+  try {
+    const classRef = doc(db, CLASSES_COLLECTION, classId);
+    const cls = await getClassById(classId);
+    if (cls) {
+      const updatedStudents = cls.students.map(s => 
+        s.id === studentId ? { ...s, prohibitedFromExit: !s.prohibitedFromExit } : s
+      );
+      await updateDoc(classRef, { students: updatedStudents });
+    }
+  } catch (error) {
+    console.error("Firestore toggleStudentExitProhibition error:", error);
+    throw error;
+  }
+}
+
 export async function removeStudent(classId: string, studentId: string) {
   try {
     const classRef = doc(db, CLASSES_COLLECTION, classId);
@@ -137,6 +153,34 @@ export async function removeStudent(classId: string, studentId: string) {
     }
   } catch (error) {
     console.error("Firestore removeStudent error:", error);
+    throw error;
+  }
+}
+
+export async function transferStudent(fromClassId: string, toClassId: string, studentId: string) {
+  try {
+    const fromClass = await getClassById(fromClassId);
+    const toClass = await getClassById(toClassId);
+    
+    if (!fromClass || !toClass) {
+      throw new Error("Uma ou ambas as turmas não foram encontradas.");
+    }
+
+    const student = fromClass.students.find(s => s.id === studentId);
+    if (!student) {
+      throw new Error("Aluno não encontrado na turma de origem.");
+    }
+
+    // 1. Add to new class
+    const toClassRef = doc(db, CLASSES_COLLECTION, toClassId);
+    await updateDoc(toClassRef, {
+      students: arrayUnion(student)
+    });
+
+    // 2. Remove from old class (this also cleans up activity completions)
+    await removeStudent(fromClassId, studentId);
+  } catch (error) {
+    console.error("Firestore transferStudent error:", error);
     throw error;
   }
 }

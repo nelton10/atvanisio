@@ -1,6 +1,7 @@
 export interface Student {
   id: string;
   name: string;
+  prohibitedFromExit?: boolean;
 }
 
 export interface Activity {

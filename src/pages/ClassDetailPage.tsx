@@ -30,7 +30,7 @@ export default function ClassDetailPage({ classId, discipline, onBack }: Props) 
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [editingActivityTitle, setEditingActivityTitle] = useState('');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<{ type: 'student' | 'activity'; id: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'student' | 'activity' | 'clear_all'; id: string } | null>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [bimesters, setBimesters] = useState<Bimester[]>([]);
   const [activeBimesterId, setActiveBimesterId] = useState<number>(0);
@@ -134,6 +134,7 @@ export default function ClassDetailPage({ classId, discipline, onBack }: Props) 
   const handleClearAll = async () => {
     if (!selectedActivity) return;
     await clearAllCompletion(classId, selectedActivity.id);
+    setDeleteTarget(null);
     reload();
   };
 
@@ -403,6 +404,13 @@ export default function ClassDetailPage({ classId, discipline, onBack }: Props) 
                 >
                   <Edit3 size={14} />
                 </button>
+                <button
+                  onClick={() => setDeleteTarget({ type: 'activity', id: selectedActivity.id })}
+                  className="text-destructive hover:text-destructive/80 transition-colors ml-auto"
+                  title="Excluir Atividade"
+                >
+                  <Trash2 size={16} />
+                </button>
               </div>
             )}
           </div>
@@ -471,7 +479,7 @@ export default function ClassDetailPage({ classId, discipline, onBack }: Props) 
             </motion.button>
             <motion.button
               whileTap={{ scale: 0.97 }}
-              onClick={handleClearAll}
+              onClick={() => setDeleteTarget({ type: 'clear_all', id: selectedActivity.id })}
               className="flex-1 h-9 rounded-lg bg-secondary text-muted-foreground text-sm font-medium flex items-center justify-center gap-1.5"
             >
               <XCircle size={16} /> Limpar Todos
@@ -547,12 +555,20 @@ export default function ClassDetailPage({ classId, discipline, onBack }: Props) 
 
       <ConfirmModal
         open={!!deleteTarget}
-        title={deleteTarget?.type === 'student' ? 'Excluir Aluno' : 'Excluir Atividade'}
-        message={deleteTarget?.type === 'student'
-          ? 'Tem certeza que deseja excluir este aluno?'
-          : 'Tem certeza que deseja excluir esta atividade?'
+        title={
+          deleteTarget?.type === 'student' ? 'Excluir Aluno' : 
+          deleteTarget?.type === 'activity' ? 'Excluir Atividade' : 'Limpar Progresso'
         }
-        onConfirm={deleteTarget?.type === 'student' ? handleDeleteStudent : handleDeleteActivity}
+        message={
+          deleteTarget?.type === 'student' ? 'Tem certeza que deseja excluir este aluno?' :
+          deleteTarget?.type === 'activity' ? 'Tem certeza que deseja excluir esta atividade? Todos os dados de progresso desta atividade serão perdidos.' :
+          'Tem certeza que deseja limpar o progresso de todos os alunos nesta atividade? Esta ação não pode ser desfeita.'
+        }
+        onConfirm={
+          deleteTarget?.type === 'student' ? handleDeleteStudent : 
+          deleteTarget?.type === 'activity' ? handleDeleteActivity :
+          handleClearAll
+        }
         onCancel={() => setDeleteTarget(null)}
       />
     </div>

@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import LoginPage from '@/pages/LoginPage';
 import DashboardPage from '@/pages/DashboardPage';
+import GestaoPage from '@/pages/GestaoPage';
 import ClassDetailPage from '@/pages/ClassDetailPage';
 import ReportsPage from '@/pages/ReportsPage';
 import { motion } from 'framer-motion';
-import { LogOut, BarChart3, Home } from 'lucide-react';
+import { LogOut, BarChart3, Home, Settings } from 'lucide-react';
 
-type View = 'dashboard' | 'class' | 'reports';
+type View = 'dashboard' | 'class' | 'reports' | 'gestao';
 
 export default function Index() {
   const { user, logout } = useAuth();
@@ -36,6 +37,9 @@ export default function Index() {
     }
     if (view === 'reports') {
       return <ReportsPage onBack={() => setView('dashboard')} />;
+    }
+    if (view === 'gestao') {
+      return <GestaoPage onBack={() => setView('dashboard')} />;
     }
     return null;
   };
@@ -95,6 +99,19 @@ export default function Index() {
             <BarChart3 size={22} className="mb-1" />
             Relatórios
           </button>
+          {user.role === 'gestao' && (
+            <button
+              onClick={() => setView('gestao')}
+              className={`flex-1 flex flex-col items-center justify-center text-xs font-bold transition-all ${
+                view === 'gestao'
+                  ? 'text-primary scale-110'
+                  : 'text-muted-foreground opacity-70'
+              }`}
+            >
+              <Settings size={22} className="mb-1" />
+              Gestão
+            </button>
+          )}
         </div>
       </nav>
     </div>
