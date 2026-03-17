@@ -24,6 +24,16 @@ function generateId(): string {
   return Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
 }
 
+function cleanObject<T extends object>(obj: T): T {
+  const newObj = { ...obj } as any;
+  Object.keys(newObj).forEach(key => {
+    if (newObj[key] === undefined) {
+      delete newObj[key];
+    }
+  });
+  return newObj;
+}
+
 // Classes
 export async function getClasses(): Promise<SchoolClass[]> {
   try {
@@ -123,14 +133,14 @@ export async function removeStudent(classId: string, studentId: string) {
 export async function addActivity(classId: string, title: string, author: string, image?: string) {
   try {
     const classRef = doc(db, CLASSES_COLLECTION, classId);
-    const newActivity: Activity = {
+    const newActivity = cleanObject({
       id: generateId(),
       title,
       date: new Date().toISOString(),
       completedIds: [],
       image,
       author,
-    };
+    });
     await updateDoc(classRef, {
       activities: arrayUnion(newActivity)
     });
@@ -146,7 +156,7 @@ export async function updateActivity(classId: string, activityId: string, update
     const cls = await getClassById(classId);
     if (cls) {
       const updatedActivities = cls.activities.map(a => 
-        a.id === activityId ? { ...a, ...updates } : a
+        a.id === activityId ? cleanObject({ ...a, ...updates }) : a
       );
       await updateDoc(classRef, { activities: updatedActivities });
     }
