@@ -69,6 +69,14 @@ export default function ClassDetailPage({ classId, onBack }: Props) {
     reload();
   };
 
+  const handleAddActivityWithDate = () => {
+    if (!user) return;
+    const dateTitle = new Date().toLocaleDateString('pt-BR');
+    addActivity(classId, dateTitle, user.name);
+    setNewActivityTitle('');
+    reload();
+  };
+
   const handleDeleteActivity = () => {
     if (deleteTarget?.type === 'activity') {
       deleteActivity(classId, deleteTarget.id);
@@ -239,6 +247,13 @@ export default function ClassDetailPage({ classId, onBack }: Props) {
               className="h-11 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold flex items-center gap-1.5"
             >
               <Plus size={18} />
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={handleAddActivityWithDate}
+              className="h-11 px-4 rounded-lg bg-secondary text-secondary-foreground text-sm font-semibold flex items-center gap-1.5 whitespace-nowrap"
+            >
+              <Plus size={18} /> Nova Atividade
             </motion.button>
           </div>
 
