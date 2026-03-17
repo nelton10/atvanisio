@@ -94,9 +94,10 @@ export default function DashboardPage({ onOpenClass }: Props) {
         reader.onload = () => {
           try {
             importBackup(reader.result as string);
-            setClasses(getClasses());
-          } catch {
-            alert('Arquivo inválido.');
+            alert('Dados importados com sucesso!');
+            window.location.reload();
+          } catch (err: any) {
+            alert(err.message || 'Erro ao processar o arquivo.');
           }
         };
         reader.readAsText(file);

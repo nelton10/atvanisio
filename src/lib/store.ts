@@ -203,6 +203,54 @@ export function exportBackup(): string {
 
 export function importBackup(json: string) {
   const data = JSON.parse(json);
+  
+  if (Array.isArray(data)) {
+    saveClasses(data);
+    return;
+  }
+  
+  // Support for legacy system format with "alunos" array
+  if (data.alunos && Array.isArray(data.alunos)) {
+    const classMap = new Map<string, SchoolClass>();
+    
+    data.alunos.forEach((aluno: any) => {
+      if (!aluno.turma) return;
+      
+      const className = aluno.turma.trim();
+      if (!classMap.has(className)) {
+        classMap.set(className, {
+          id: generateId(),
+          name: className,
+          students: [],
+          activities: []
+        });
+      }
+      
+      const studentName = aluno.nome?.trim();
+      if (studentName && studentName !== '[Avaliação de Turma]') {
+        const studentExists = classMap.get(className)!.students.some(s => s.name === studentName);
+        if (!studentExists) {
+          classMap.get(className)!.students.push({
+            id: aluno.id || generateId(),
+            name: studentName
+          });
+        }
+      }
+    });
+
+    const newClasses = Array.from(classMap.values());
+    if (newClasses.length === 0) {
+      throw new Error('Nenhum dado de turmas ou alunos encontrado no arquivo.');
+    }
+    
+    saveClasses(newClasses);
+    return;
+  }
+  
+  if (!data.classes && !data.assignments) {
+    throw new Error('Formato de arquivo não reconhecido. Certifique-se de que é um backup válido.');
+  }
+
   if (data.classes) saveClasses(data.classes);
   if (data.assignments) saveAssignments(data.assignments);
 }
