@@ -31,11 +31,15 @@ export default function LoginPage() {
         className="w-full max-w-sm"
       >
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary mb-4">
-            <GraduationCap className="w-7 h-7 text-primary-foreground" />
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-white shadow-sm border border-border mb-6">
+            <img 
+              src="https://raw.githubusercontent.com/nelton10/atvanisio/refs/heads/main/public/favicon.ico" 
+              alt="Logo" 
+              className="w-12 h-12 object-contain"
+            />
           </div>
-          <h1 className="text-2xl font-bold text-foreground font-display">Portal Educativo</h1>
-          <p className="text-sm text-muted-foreground mt-1">Gestão Escolar Simplificada</p>
+          <h1 className="text-3xl font-bold text-foreground font-display tracking-tight">Portal Educativo</h1>
+          <p className="text-base text-muted-foreground mt-2 font-medium">Gestão Escolar Simplificada</p>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-card rounded-2xl border border-border p-6 shadow-sm space-y-4">

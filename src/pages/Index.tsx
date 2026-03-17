@@ -26,7 +26,8 @@ export default function Index() {
       {/* Top bar */}
       <header className="sticky top-0 z-40 bg-card/80 backdrop-blur border-b border-border">
         <div className="max-w-3xl mx-auto flex items-center justify-between px-4 h-14">
-          <span className="text-sm font-semibold text-foreground font-display">
+          <span className="text-base font-bold text-primary font-display flex items-center gap-2">
+            <img src="https://raw.githubusercontent.com/nelton10/atvanisio/refs/heads/main/public/favicon.ico" alt="" className="w-6 h-6 object-contain" />
             Portal Educativo
           </span>
           <div className="flex items-center gap-1">
@@ -58,28 +59,28 @@ export default function Index() {
       </main>
 
       {/* Bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-border">
-        <div className="max-w-3xl mx-auto flex">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-md border-t border-border/50 pb-safe">
+        <div className="max-w-3xl mx-auto flex h-16">
           <button
             onClick={() => setView('dashboard')}
-            className={`flex-1 flex flex-col items-center justify-center h-16 text-xs font-medium transition-colors ${
+            className={`flex-1 flex flex-col items-center justify-center text-xs font-bold transition-all ${
               view === 'dashboard' || view === 'class'
-                ? 'text-primary'
-                : 'text-muted-foreground'
+                ? 'text-primary scale-110'
+                : 'text-muted-foreground opacity-70'
             }`}
           >
-            <Home size={20} className="mb-1" />
+            <Home size={22} className="mb-1" />
             Turmas
           </button>
           <button
             onClick={() => setView('reports')}
-            className={`flex-1 flex flex-col items-center justify-center h-16 text-xs font-medium transition-colors ${
+            className={`flex-1 flex flex-col items-center justify-center text-xs font-bold transition-all ${
               view === 'reports'
-                ? 'text-primary'
-                : 'text-muted-foreground'
+                ? 'text-primary scale-110'
+                : 'text-muted-foreground opacity-70'
             }`}
           >
-            <BarChart3 size={20} className="mb-1" />
+            <BarChart3 size={22} className="mb-1" />
             Relatórios
           </button>
         </div>
