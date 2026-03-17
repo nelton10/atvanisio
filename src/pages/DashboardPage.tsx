@@ -8,7 +8,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Trash2, Edit3, Download, Upload, Users, BookOpen,
-  Check, Search, FolderOpen
+  Check, Search, FolderOpen, Smartphone
 } from 'lucide-react';
 import ConfirmModal from '@/components/ConfirmModal';
 
@@ -27,6 +27,8 @@ export default function DashboardPage({ onOpenClass }: Props) {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [setupMode, setSetupMode] = useState(false);
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBtn, setShowInstallBtn] = useState(false);
 
   const isGestao = user?.role === 'gestao';
 
@@ -48,7 +50,26 @@ export default function DashboardPage({ onOpenClass }: Props) {
 
   useEffect(() => {
     loadData();
+
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallBtn(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
   }, [user]);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+      setShowInstallBtn(false);
+    }
+  };
 
   const visibleClasses = isGestao
     ? classes
@@ -207,24 +228,35 @@ export default function DashboardPage({ onOpenClass }: Props) {
       </div>
 
       {/* Actions for gestao */}
-      {isGestao && (
-        <div className="flex flex-wrap gap-2 mb-4">
+      <div className="flex flex-wrap gap-2 mb-4">
+        {showInstallBtn && (
           <motion.button
             whileTap={{ scale: 0.97 }}
-            onClick={handleExport}
-            className="flex items-center gap-1.5 h-9 px-3 rounded-lg bg-card border border-border text-sm font-medium text-foreground hover:bg-secondary transition-colors"
+            onClick={handleInstallClick}
+            className="flex items-center gap-1.5 h-9 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-bold shadow-sm"
           >
-            <Download size={16} /> Backup
+            <Smartphone size={16} /> Instalar Aplicativo
           </motion.button>
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={handleImport}
-            className="flex items-center gap-1.5 h-9 px-3 rounded-lg bg-card border border-border text-sm font-medium text-foreground hover:bg-secondary transition-colors"
-          >
-            <Upload size={16} /> Importar
-          </motion.button>
-        </div>
-      )}
+        )}
+        {isGestao && (
+          <>
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={handleExport}
+              className="flex items-center gap-1.5 h-9 px-3 rounded-lg bg-card border border-border text-sm font-medium text-foreground hover:bg-secondary transition-colors"
+            >
+              <Download size={16} /> Backup
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={handleImport}
+              className="flex items-center gap-1.5 h-9 px-3 rounded-lg bg-card border border-border text-sm font-medium text-foreground hover:bg-secondary transition-colors"
+            >
+              <Upload size={16} /> Importar
+            </motion.button>
+          </>
+        )}
+      </div>
 
       {/* Add class */}
       {isGestao && (
