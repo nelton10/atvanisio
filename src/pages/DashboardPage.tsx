@@ -183,18 +183,18 @@ export default function DashboardPage({ onOpenClass }: Props) {
     <div className="p-4 max-w-3xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h2 className="text-xl font-bold text-foreground font-display">
+        <h2 className="text-2xl font-bold text-foreground font-display">
           {isGestao ? 'Painel de Gestão' : `Olá, ${user?.name}`}
         </h2>
         {isGestao && visibleClasses.length > 0 && (
-          <div className="mt-3 p-4 rounded-xl bg-card border border-border">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-muted-foreground">Média Global de Conclusão</span>
-              <span className="text-sm font-bold text-foreground tabular-nums">
+          <div className="mt-4 p-4 rounded-2xl bg-card border border-border shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium text-muted-foreground">Média Global de Conclusão</span>
+              <span className="text-base font-bold text-foreground tabular-nums">
                 {globalAvg.toFixed(1).replace('.', ',')}%
               </span>
             </div>
-            <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+            <div className="h-2 bg-secondary rounded-full overflow-hidden">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${globalAvg}%` }}
@@ -228,21 +228,21 @@ export default function DashboardPage({ onOpenClass }: Props) {
 
       {/* Add class */}
       {isGestao && (
-        <div className="flex gap-2 mb-4">
+        <div className="flex flex-col sm:flex-row gap-2 mb-6">
           <input
             type="text"
             value={newClassName}
             onChange={e => setNewClassName(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleAdd()}
             placeholder="Nome da nova turma..."
-            className="flex-1 h-11 px-3 rounded-lg border border-input bg-card text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            className="flex-1 h-12 px-4 rounded-xl border border-input bg-card text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all"
           />
           <motion.button
             whileTap={{ scale: 0.97 }}
             onClick={handleAdd}
-            className="h-11 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold flex items-center gap-1.5"
+            className="h-12 px-6 rounded-xl bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center gap-2 shadow-sm"
           >
-            <Plus size={18} /> Criar
+            <Plus size={20} /> Criar Turma
           </motion.button>
         </div>
       )}

@@ -97,22 +97,22 @@ export default function ReportsPage({ onBack }: Props) {
       </div>
 
       {/* Actions */}
-      <div className="flex gap-2 mb-4">
+      <div className="flex flex-col sm:flex-row gap-2 mb-6">
         <motion.button
           whileTap={{ scale: 0.97 }}
           onClick={exportCSV}
           disabled={studentReports.length === 0}
-          className="flex items-center gap-1.5 h-9 px-3 rounded-lg bg-card border border-border text-sm font-medium text-foreground hover:bg-secondary transition-colors disabled:opacity-50"
+          className="flex-1 flex items-center justify-center gap-2 h-11 px-4 rounded-xl bg-card border border-border text-sm font-bold text-foreground hover:bg-secondary transition-colors disabled:opacity-50 shadow-sm"
         >
-          <Download size={16} /> Exportar CSV
+          <Download size={18} /> Exportar CSV
         </motion.button>
         <motion.button
           whileTap={{ scale: 0.97 }}
           onClick={handlePrint}
           disabled={studentReports.length === 0}
-          className="flex items-center gap-1.5 h-9 px-3 rounded-lg bg-card border border-border text-sm font-medium text-foreground hover:bg-secondary transition-colors disabled:opacity-50"
+          className="flex-1 flex items-center justify-center gap-2 h-11 px-4 rounded-xl bg-card border border-border text-sm font-bold text-foreground hover:bg-secondary transition-colors disabled:opacity-50 shadow-sm"
         >
-          <Printer size={16} /> Imprimir
+          <Printer size={18} /> Imprimir
         </motion.button>
       </div>
 

@@ -64,17 +64,27 @@ export default function ClassDetailPage({ classId, onBack }: Props) {
 
   const handleAddActivity = async () => {
     if (!newActivityTitle.trim() || !user) return;
-    await addActivity(classId, newActivityTitle.trim(), user.name);
-    setNewActivityTitle('');
-    reload();
+    try {
+      await addActivity(classId, newActivityTitle.trim(), user.name);
+      setNewActivityTitle('');
+      await reload();
+    } catch (error) {
+      console.error("Erro ao adicionar atividade:", error);
+      alert("Erro ao criar atividade. Verifique sua conexão.");
+    }
   };
 
   const handleAddActivityWithDate = async () => {
     if (!user) return;
-    const dateTitle = new Date().toLocaleDateString('pt-BR');
-    await addActivity(classId, dateTitle, user.name);
-    setNewActivityTitle('');
-    reload();
+    try {
+      const dateTitle = new Date().toLocaleDateString('pt-BR');
+      await addActivity(classId, dateTitle, user.name);
+      setNewActivityTitle('');
+      await reload();
+    } catch (error) {
+      console.error("Erro ao adicionar atividade com data:", error);
+      alert("Erro ao criar atividade automática. Verifique sua conexão.");
+    }
   };
 
   const handleDeleteActivity = async () => {
@@ -143,15 +153,15 @@ export default function ClassDetailPage({ classId, onBack }: Props) {
   return (
     <div className="p-4 max-w-3xl mx-auto">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center gap-3 mb-6">
         <motion.button
           whileTap={{ scale: 0.95 }}
           onClick={onBack}
-          className="w-10 h-10 rounded-lg flex items-center justify-center bg-card border border-border text-foreground"
+          className="w-10 h-10 rounded-xl flex items-center justify-center bg-card border border-border text-foreground shadow-sm shrink-0"
         >
           <ArrowLeft size={20} />
         </motion.button>
-        <h2 className="text-xl font-bold text-foreground font-display">{cls.name}</h2>
+        <h2 className="text-xl sm:text-2xl font-bold text-foreground font-display truncate">{cls.name}</h2>
       </div>
 
       {/* Tabs */}
@@ -174,21 +184,21 @@ export default function ClassDetailPage({ classId, onBack }: Props) {
       {/* Students Tab */}
       {tab === 'students' && (
         <div>
-          <div className="flex gap-2 mb-4">
+          <div className="flex gap-2 mb-6">
             <input
               type="text"
               value={newStudentName}
               onChange={e => setNewStudentName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleAddStudent()}
               placeholder="Nome do aluno..."
-              className="flex-1 h-11 px-3 rounded-lg border border-input bg-card text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className="flex-1 h-12 px-4 rounded-xl border border-input bg-card text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all"
             />
             <motion.button
               whileTap={{ scale: 0.97 }}
               onClick={handleAddStudent}
-              className="h-11 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold flex items-center gap-1.5"
+              className="h-12 w-12 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shrink-0 shadow-sm"
             >
-              <UserPlus size={16} />
+              <UserPlus size={20} />
             </motion.button>
           </div>
 
@@ -234,28 +244,32 @@ export default function ClassDetailPage({ classId, onBack }: Props) {
       {/* Activities Tab */}
       {tab === 'activities' && !selectedActivity && (
         <div>
-          <div className="flex gap-2 mb-4">
-            <input
-              type="text"
-              value={newActivityTitle}
-              onChange={e => setNewActivityTitle(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleAddActivity()}
-              placeholder="Título da atividade..."
-              className="flex-1 h-11 px-3 rounded-lg border border-input bg-card text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            />
+          <div className="flex flex-col gap-3 mb-6">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newActivityTitle}
+                onChange={e => setNewActivityTitle(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAddActivity()}
+                placeholder="Título da atividade..."
+                className="flex-1 h-12 px-4 rounded-xl border border-input bg-card text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all"
+              />
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={handleAddActivity}
+                className="h-12 w-12 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shrink-0 shadow-sm"
+                title="Criar atividade"
+              >
+                <Plus size={24} />
+              </motion.button>
+            </div>
+            
             <motion.button
-              whileTap={{ scale: 0.97 }}
-              onClick={handleAddActivity}
-              className="h-11 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold flex items-center gap-1.5"
-            >
-              <Plus size={18} />
-            </motion.button>
-            <motion.button
-              whileTap={{ scale: 0.97 }}
+              whileTap={{ scale: 0.98 }}
               onClick={handleAddActivityWithDate}
-              className="h-11 px-4 rounded-lg bg-secondary text-secondary-foreground text-sm font-semibold flex items-center gap-1.5 whitespace-nowrap"
+              className="h-12 w-full rounded-xl bg-secondary text-secondary-foreground text-sm font-bold flex items-center justify-center gap-2 shadow-sm border border-border"
             >
-              <Plus size={18} /> Nova Atividade
+              <Plus size={20} /> Nova Atividade (Data de Hoje)
             </motion.button>
           </div>
 

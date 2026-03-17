@@ -26,33 +26,58 @@ function generateId(): string {
 
 // Classes
 export async function getClasses(): Promise<SchoolClass[]> {
-  const querySnapshot = await getDocs(collection(db, CLASSES_COLLECTION));
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SchoolClass));
+  try {
+    const querySnapshot = await getDocs(collection(db, CLASSES_COLLECTION));
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SchoolClass));
+  } catch (error) {
+    console.error("Firestore getClasses error:", error);
+    throw error;
+  }
 }
 
 export async function addClass(name: string): Promise<SchoolClass> {
-  const id = generateId();
-  const newClass: SchoolClass = { id, name, students: [], activities: [] };
-  await setDoc(doc(db, CLASSES_COLLECTION, id), newClass);
-  return newClass;
+  try {
+    const id = generateId();
+    const newClass: SchoolClass = { id, name, students: [], activities: [] };
+    await setDoc(doc(db, CLASSES_COLLECTION, id), newClass);
+    return newClass;
+  } catch (error) {
+    console.error("Firestore addClass error:", error);
+    throw error;
+  }
 }
 
 export async function updateClass(id: string, updates: Partial<SchoolClass>) {
-  const classRef = doc(db, CLASSES_COLLECTION, id);
-  await updateDoc(classRef, updates);
+  try {
+    const classRef = doc(db, CLASSES_COLLECTION, id);
+    await updateDoc(classRef, updates);
+  } catch (error) {
+    console.error("Firestore updateClass error:", error);
+    throw error;
+  }
 }
 
 export async function deleteClass(id: string) {
-  await deleteDoc(doc(db, CLASSES_COLLECTION, id));
+  try {
+    await deleteDoc(doc(db, CLASSES_COLLECTION, id));
+  } catch (error) {
+    console.error("Firestore deleteClass error:", error);
+    throw error;
+  }
 }
 
 export async function getClassById(id: string): Promise<SchoolClass | undefined> {
-  const docRef = doc(db, CLASSES_COLLECTION, id);
-  const docSnap = await getDoc(docRef);
-  if (docSnap.exists()) {
-    return { id: docSnap.id, ...docSnap.data() } as SchoolClass;
+  try {
+    const docRef = doc(db, CLASSES_COLLECTION, id);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return { id: docSnap.id, ...docSnap.data() } as SchoolClass;
+    }
+    return undefined;
+  } catch (error) {
+    console.error("Firestore getClassById error:", error);
+    throw error;
   }
-  return undefined;
 }
 
 // Students
