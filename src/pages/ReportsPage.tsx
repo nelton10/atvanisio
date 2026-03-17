@@ -10,8 +10,10 @@ interface Props {
 }
 
 interface StudentReport {
+  id: string; // unique combo for mapping
   name: string;
   className: string;
+  discipline: string;
   completed: number;
   total: number;
   percentage: number;
@@ -20,7 +22,8 @@ interface StudentReport {
 export default function ReportsPage({ onBack }: Props) {
   const { user } = useAuth();
   const [classes, setClasses] = useState<SchoolClass[]>([]);
-  const [selectedClassId, setSelectedClassId] = useState<string>('all');
+  const [allReports, setAllReports] = useState<StudentReport[]>([]);
+  const [filter, setFilter] = useState<{classId: string, discipline: string}>({ classId: 'all', discipline: '' });
 
   useEffect(() => {
     const loadData = async () => {
@@ -36,7 +39,7 @@ export default function ReportsPage({ onBack }: Props) {
         filteredClasses = allClasses;
       } else if (user) {
         const myAssignments = allAssignments[user.name] || [];
-        const myClassIds = myAssignments.map(a => a.classId);
+        const myClassIds = Array.from(new Set(myAssignments.map(a => a.classId)));
         filteredClasses = allClasses.filter(c => myClassIds.includes(c.id));
       }
 
@@ -58,8 +61,10 @@ export default function ReportsPage({ onBack }: Props) {
             const completed = activities.filter(a => a.completedIds.includes(student.id)).length;
             
             studentReports.push({
+              id: `${cls.id}-${disc}-${student.id}`,
               name: student.name,
-              className: disc ? `${cls.name} (${disc})` : cls.name,
+              className: cls.name,
+              discipline: disc,
               completed,
               total,
               percentage: total > 0 ? (completed / total) * 100 : 0,
@@ -68,24 +73,32 @@ export default function ReportsPage({ onBack }: Props) {
         }
       }
 
-      setClasses(filteredClasses);
+      setClasses(allClasses); // Keep all classes for reference if needed
       setAllReports(studentReports);
     };
     loadData();
   }, [user]);
 
-  const [allReports, setAllReports] = useState<StudentReport[]>([]);
-
-  const filteredReports = selectedClassId === 'all'
+  const filteredReports = filter.classId === 'all'
     ? allReports
-    : allReports.filter(r => r.className.includes(classes.find(c => c.id === selectedClassId)?.name || ''));
+    : allReports.filter(r => {
+        // Find the class by ID to get its name for matching, or just use classId if we store it
+        // To be safe, let's just match the raw data we have in StudentReport
+        const targetClass = classes.find(c => c.id === filter.classId);
+        return targetClass?.name === r.className && r.discipline === filter.discipline;
+      });
 
   const sortedReports = [...filteredReports].sort((a, b) => b.percentage - a.percentage);
 
+  // Group filter options
+  const filterOptions = Array.from(new Set(allReports.map(r => JSON.stringify({ classId: classes.find(c => c.name === r.className)?.id, className: r.className, discipline: r.discipline }))))
+    .map(s => JSON.parse(s))
+    .sort((a, b) => a.className.localeCompare(b.className) || a.discipline.localeCompare(b.discipline));
+
   const exportCSV = () => {
-    const header = 'Posição,Aluno,Turma,Concluídas,Total,Percentual\n';
+    const header = 'Posição,Aluno,Turma,Disciplina,Concluídas,Total,Percentual\n';
     const rows = sortedReports.map((r, i) =>
-      `${i + 1},"${r.name}","${r.className}",${r.completed},${r.total},"${r.percentage.toFixed(1).replace('.', ',')}%"`
+      `${i + 1},"${r.name}","${r.className}","${r.discipline}",${r.completed},${r.total},"${r.percentage.toFixed(1).replace('.', ',')}%"`
     ).join('\n');
     const blob = new Blob([header + rows], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -116,13 +129,15 @@ export default function ReportsPage({ onBack }: Props) {
       {/* Filter */}
       <div className="mb-4">
         <select
-          value={selectedClassId}
-          onChange={e => setSelectedClassId(e.target.value)}
+          value={JSON.stringify(filter)}
+          onChange={e => setFilter(JSON.parse(e.target.value))}
           className="w-full h-11 px-3 rounded-lg border border-input bg-card text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         >
-          <option value="all">Todas as turmas</option>
-          {classes.map(c => (
-            <option key={c.id} value={c.id}>{c.name}</option>
+          <option value={JSON.stringify({ classId: 'all', discipline: '' })}>Todos os relatórios</option>
+          {filterOptions.filter(opt => opt.classId).map((opt, i) => (
+            <option key={i} value={JSON.stringify({ classId: opt.classId, discipline: opt.discipline })}>
+              {opt.className} {opt.discipline ? ` - ${opt.discipline}` : ''}
+            </option>
           ))}
         </select>
       </div>
@@ -157,15 +172,23 @@ export default function ReportsPage({ onBack }: Props) {
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground">#</th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Aluno</th>
                   <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Turma</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground">Disciplina</th>
                   <th className="text-right px-4 py-3 font-semibold text-muted-foreground">Progresso</th>
                 </tr>
               </thead>
               <tbody>
                 {sortedReports.map((r, i) => (
-                  <tr key={`${r.name}-${r.className}-${i}`} className="border-b border-border last:border-0">
+                  <tr key={r.id} className="border-b border-border last:border-0">
                     <td className="px-4 py-3 tabular-nums text-muted-foreground">{i + 1}</td>
                     <td className="px-4 py-3 font-medium text-foreground">{r.name}</td>
                     <td className="px-4 py-3 text-muted-foreground">{r.className}</td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {r.discipline && (
+                        <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-bold uppercase">
+                          {r.discipline}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <div className="w-16 h-1.5 bg-secondary rounded-full overflow-hidden">
